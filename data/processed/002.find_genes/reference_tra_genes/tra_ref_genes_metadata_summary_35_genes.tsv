@@ -1,0 +1,36 @@
+TRA_GENES	group	Function	Label	Short.Label	Short.Label.1	n.homologs	median_protein_length	min_protein_length	max.protein_length
+tram	1	regulation/relaxosome	traM	M	M	27	127	123	168
+traj	1	regulation/relaxosome	traJ	J	J	32	228	67	525
+tray	1	regulation/relaxosome	traY	Y	Y	22	75	60	133
+traa	1	pilus formation	traA	A	A	25	120	79	132
+tral	1	T4SS	traL	L	L	13	103	98	104
+trae	1	T4SS	traE	E	E	24	188	121	188
+trak	2	T4SS	traK	K	K	24	242	169	475
+trab	2	T4SS	traB	B	B	26	475	422	866
+trap	2	nonessential	traP	P	P	27	196	131	208
+trbd	2	nonessential	trbD	bD	bD	27	106	63	136
+trbg	2	nonessential	trbG	bG	bG	9	83	77	88
+trav	2	T4SS	traV	V	V	27	171	171	204
+trar	3	nonessential	traR	R	R	13	73	57	74
+trac	3	T4SS	traC	C	C	33	876	785	882
+trbi	3	pilus formation	trbI	bI	bI	24	128	101	154
+traw	3	pilus formation	traW	W	W	34	210	195	248
+trau	3	pilus formation	traU	U	U	23	330	322	364
+trbc	3	pilus formation	trbC	bC	bC	36	212	200	221
+tran	4	mating pair stability	traN	N	N	36	602	284	651
+trbe	4	nonessential	trbE	bE	bE	21	85	71	86
+traf	4	pilus formation	traF	F	F	32	249.5	247	331
+trba	4	nonessential	trbA	bA	bA	17	115	112	115
+arta	4	nonessential	artA	artA	artA	5	104	104	111
+traq	4	pilus formation	traQ	Q	Q	21	94	78	97
+trbb	5	pilus formation	trbB	bB	bB	24	181	160	203
+trbj	5	nonessential	trbJ	bJ	bJ	24	104	89	147
+trbf	5	nonessential	trbF	bF	bF	24	130	37	147
+trah	5	pilus formation	traH	H	H	26	457.5	426	460
+trag	5	T4SS	traG	G	G	35	940	268	984
+tras	5	self-transfer prevention	traS	S	S	15	169	60	182
+trat	6	self-transfer prevention	traT	T	T	35	243	220	293
+trad	6	T4SS	traD	D	D	47	732	46	1767
+trai	6	regulation/relaxosome	traI	I	I	39	1756	130	1766
+trax	6	pilus formation	traX	X	X	39	248	153	405
+fino	6	regulation/relaxosome	finO	finO	finO	31	186	67	211

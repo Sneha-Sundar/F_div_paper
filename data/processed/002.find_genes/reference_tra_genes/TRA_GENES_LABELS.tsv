@@ -1,0 +1,37 @@
+TRA_GENES	group	Function	Label	Short.Label	Short.Label.1	ESSENTIAL
+1	tram	1	regulation/relaxosome	traM	M	M	TRUE
+2	traj	1	regulation/relaxosome	traJ	J	J	TRUE
+3	tray	1	regulation/relaxosome	traY	Y	Y	TRUE
+4	traa	1	pilus formation	traA	A	A	TRUE
+5	tral	1	T4SS	traL	L	L	TRUE
+6	trae	1	T4SS	traE	E	E	TRUE
+7	trak	2	T4SS	traK	K	K	TRUE
+8	trab	2	T4SS	traB	B	B	TRUE
+9	trap	2	nonessential	traP	P	P	FALSE
+10	trbd	2	nonessential	trbD	bD	bD	FALSE
+11	trbg	2	nonessential	trbG	bG	bG	FALSE
+12	trav	2	T4SS	traV	V	V	TRUE
+13	trar	3	nonessential	traR	R	R	FALSE
+14	trac	3	T4SS	traC	C	C	TRUE
+15	trbi	3	pilus formation	trbI	bI	bI	TRUE
+16	traw	3	pilus formation	traW	W	W	TRUE
+17	trau	3	pilus formation	traU	U	U	TRUE
+18	trbc	3	pilus formation	trbC	bC	bC	TRUE
+19	tran	4	mating pair stability	traN	N	N	TRUE
+20	trbe	4	nonessential	trbE	bE	bE	FALSE
+21	traf	4	pilus formation	traF	F	F	TRUE
+22	trba	4	nonessential	trbA	bA	bA	FALSE
+23	arta	4	nonessential	artA	artA	artA	FALSE
+24	traq	4	pilus formation	traQ	Q	Q	TRUE
+25	trbb	5	pilus formation	trbB	bB	bB	TRUE
+26	trbj	5	nonessential	trbJ	bJ	bJ	FALSE
+27	trbf	5	nonessential	trbF	bF	bF	FALSE
+28	trah	5	pilus formation	traH	H	H	TRUE
+29	trag	5	T4SS	traG	G	G	TRUE
+30	tras	5	self-transfer prevention	traS	S	S	FALSE
+31	trat	6	self-transfer prevention	traT	T	T	FALSE
+32	trad	6	T4SS	traD	D	D	TRUE
+33	trbh	6	nonessential	trbH	bH	bH	FALSE
+34	trai	6	regulation/relaxosome	traI	I	I	TRUE
+35	trax	6	pilus formation	traX	X	X	TRUE
+36	fino	6	regulation/relaxosome	finO	finO	finO	FALSE

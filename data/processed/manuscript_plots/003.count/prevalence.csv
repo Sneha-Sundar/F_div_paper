@@ -1,0 +1,15 @@
+Study,Niche,Sub-Niche,Sample size (n),F-like plasmid prevalence ,Gene Marker,Tool,Note
+"Shaw et al., 2021",Wastewater ,,83,0.73494,Replicon,MOB-typer (replicon typing),F-like plasmid prevalence estimated from the number of E.coli isolates IncF replicons were found in divided by the total number of isolates assessed for plasmids. Estimated from supplementary tables 1 and 2 of Shaw et. al 2021
+,Livestock,,378,0.85185,,,
+,,Cattle,140,0.85000,,,
+,,Pig,102,0.85294,,,
+,,Sheep,136,0.85294,,,
+,,,,,,,
+"Stephens et al., 2020",Human commensal E.coli from healthy adults ,,101,0.82178,Replicon,PlasmidFinder (replicon typing),F-like plasmid prevalence estimated from the number of E.coli isolates IncF replicons were found in divided by the total number of isolates assessed for plasmids. Replicon type assessed by PlasmidFinderEstimated from supplementary tables 1 and 2 of Stephens et al. 2020
+,,,,,,,
+"Reid et al., 2025",Clinical (bloodstream infections),,4711,0.73510,Replicon,pMLST (replicon typing),F-like plasmid prevalence estimated from the number of E.coli isolates IncF replicons were found in divided by the total number of isolates assessed for plasmids. Replicon type determined by pMLST.
+,,,,,,,
+This data,Livestock ,,1200,0.655,Transfer gene,F-like transfer gene detection by Bakta ,F-like plasmid prevalence estimated from the number of E.coli isolates where at least 5 transfer genes were detected divided by the total number of isolates assessed for plasmids.
+,,Bovine,400,0.4475,,,
+,,Poultry,400,0.8625,,,
+,,Swine,400,0.655,,,
