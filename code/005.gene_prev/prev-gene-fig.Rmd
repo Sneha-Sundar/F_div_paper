@@ -1,0 +1,196 @@
+---
+title: "Tra Gene Prevalence"
+author: "Sneha Sundar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Script and statistics for Figure 4, S4. 
+
+## Libraries
+
+```{r}
+library(here)
+library(tidyverse)
+library(epitools) #calculation of binomial confidence intervals
+
+source(here("code/000.tools/helpers.R"))
+source(here("code/000.tools/plot.R"))
+
+plot_folder <- here("data/processed/manuscript_plots/005.gene_prev")
+
+
+ESS_TRA <- TRA_GENES_GROUP %>% filter(Function != "nonessential", Function != "self-transfer prevention", TRA_GENES != "fino" ) %>% pull(TRA_GENES)
+```
+
+
+
+## Read in Bakta results
+
+
+```{r}
+INPUT_BAKTA_FILE <- here("data/processed/002.find_genes/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/pires1200bakta_onlyblastcontigs_rmnonF-like_trantotraf.tsv")
+
+pires1200_bakta <- load_processed_bakta(INPUT_BAKTA_FILE) 
+
+```
+
+Input summary table for all genomes. 
+```{r}
+genome_summary_df <- read.table(here("data/processed/002.find_genes/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/genome_tra_count_summary.tsv"),header = T,sep = '\t', quote = "")
+
+```
+
+
+## Create presence/absence table of transfer genes. 
+
+```{r}
+
+mat_count_genome.bakta <- t(sapply(genome_summary_df$target_genome,count_tra_genes_in_genome_bakta, pires1200_bakta,TRA_GENES_GROUP$TRA_GENES,simplify = T))
+
+
+mat_PreAbs_genome.bakta <- (mat_count_genome.bakta > 0)*1
+
+```
+
+
+
+## Prevalence across entire dataset
+
+```{r}
+
+overall.prev <- compute_tra_gene_prevalence(mat_PreAbs_genome.bakta,nrow(mat_PreAbs_genome.bakta))
+
+sum(genome_summary_df$bakta.n_hits_genome>0)
+
+#prevalence conditioned on having at least one transfer gene hit
+condi.prev <-  compute_tra_gene_prevalence(mat_PreAbs_genome.bakta,sum(genome_summary_df$bakta.n_hits_genome>0))
+
+```
+
+
+
+
+```{r}
+condi.prev %>% sort()
+```
+
+
+```{r}
+median(condi.prev)
+
+```
+
+Conditioned on the presence of at least one transfer gene in a genome (a set comprising 872 genomes), the median prevalence of all transfer genes is 0.8.
+
+Genes that are present in more than 90 \% of this set comprise traI and traX. The F-like relaxase, traI, is a key conjugation gene involved and it has been found that presence of only the relaxase is enough for mobilization, which is why it has been used previously as a marker gene for F-like plasmid classification. traX has been described in the literature to be a pilin N-acetylation gene, and while it is known to be conserved,  it is interesting that in our dataset traX has a prevalence larger than that of traI. 
+
+Most transfer genes are present in 70 \% to 90\% of this set (26 out of 35 marker genes) which comprises relaxasome/regulatory genes like traM, traJ, traY and finO, surface exclusion gene traT and pilus formation and T4SS genes. Interestingly two genes described to be non-essential is also in this set, traP and trbE. 
+
+Genes present in less than 70% of the genomes comprise primarily non-essential genes, traS (an entry exclusion gene). The gene with the lowest prevelance is traR, a non-essential gene, present in only 19% of the genomes. 
+
+
+
+
+## Animal host specific prevalence among genomes with at least 1 hit stratified by functional classification 
+`
+### Genomes with at least 1 hit 
+
+We find similar patterns of gene prevalences within genomes of each animal source. However, median prevalences across the animal sources vary (Poultry = 0.91, Swine = 0.81, Bovine = 0.62).
+
+
+
+```{r}
+prev_result <- create_prev_table(hit_type = "all", min.hit = 1, max.hit = 200, genome_summary_table = genome_summary_df, PresAbsMat = mat_PreAbs_genome.bakta )
+
+
+
+labels <- setNames(paste0(names(prev_result$sample_size), " (n = ", prev_result$sample_size, ")"), names(prev_result$sample_size))
+
+animal.host.prev.df <- prev_result$df %>% as.data.frame() 
+
+animal.host.prev.df <- animal.host.prev.df[rownames(animal.host.prev.df) != "trbh",]
+
+```
+
+
+
+## Prevalence with confidence intervals
+
+```{r}
+poultry_prev <- binom.approx(animal.host.prev.df$Poultry * 350,350) %>% mutate(tra_gene = rownames(animal.host.prev.df),Animal_Source = "Poultry")
+
+swine_prev <- binom.approx(animal.host.prev.df$Swine * 273,273) %>% mutate(tra_gene = rownames(animal.host.prev.df),Animal_Source = "Swine")
+
+Bovine_prev <- binom.approx(animal.host.prev.df$Bovine * 249,249) %>% mutate(tra_gene = rownames(animal.host.prev.df),Animal_Source = "Bovine")
+
+
+animal_prev_wconf <- rbind(Bovine_prev, poultry_prev, swine_prev)
+
+```
+
+
+
+## Figure: Plot Plot prevalence with binomial confidence intervals across animals 
+
+```{r}
+TRA_GENES_GROUP["y"] = 1
+
+TRA_GENES_GROUP <- TRA_GENES_GROUP %>% filter(TRA_GENES != "trbh") %>% mutate(TRA_GENES = fct_relevel(TRA_GENES,as.character(TRA_GENES_GROUP$TRA_GENES)))
+
+gene_tiles <- ggplot(TRA_GENES_GROUP, aes(x = TRA_GENES, y = y, fill = Function)) +
+  geom_tile(color = "white") +
+  scale_fill_manual(values = tra_gene_function_colours) + 
+  theme_manuscript + 
+  theme(
+    axis.text.x = element_text(angle = 90),
+    axis.title.y = element_blank(),
+    axis.text.y = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank(),
+    legend.position = "bottom"
+  ) + xlab("F-like transfer gene")
+
+gene_tiles
+
+pd <- position_dodge(0.3)
+
+p <- animal_prev_wconf %>% group_by(Animal_Source) %>%
+  mutate(tra_gene = fct_relevel(tra_gene,as.character(TRA_GENES_GROUP$TRA_GENES))) %>%
+  ggplot(aes(y = tra_gene, x = proportion,group = Animal_Source, color = Animal_Source)) + 
+  geom_errorbar(aes(y = tra_gene, xmin = lower, xmax = upper, color = Animal_Source, group = Animal_Source),position = pd,width = 1) + 
+  geom_point(position = pd, size = 2) +  theme_manuscript + theme_legend_inside_right_bottom_manuscript +  scale_x_continuous(limits= c(0,1), breaks = seq(0,1,0.1))  + scale_color_manual(values = animal_colours) +  #geom_vline(xintercept = c(0.7987385), linetype = "dashed", linewidth = 1) +
+geom_vline(xintercept = median(animal.host.prev.df$Poultry), linetype = "dashed", linewidth = 1, color = animal_colours["Poultry"]) + 
+geom_vline(xintercept = median(animal.host.prev.df$Bovine), linetype = "dashed", linewidth = 1, color = animal_colours["Bovine"]) + 
+geom_vline(xintercept = median(animal.host.prev.df$Swine), linetype = "dashed", linewidth = 1, color = animal_colours["Swine"]) + 
+  xlab("Gene Frequency") + ylab("F-like transfer gene") + coord_flip() + theme(axis.text.x = element_blank()) + labs(color = "Animal Environment")
+
+p_collect <- p/gene_tiles + plot_layout(axes = "collect", heights = c(10,1)) 
+p_collect 
+
+ggsave(filename = paste0(plot_folder,'/','bakta_gene_prev_by_animal_at_least_1_hit_F_order_wconf.pdf'),plot = p_collect,width = 18, height = 14, units = "cm") 
+```
+
+
+
+## Figure: Difference to median prevalence within each animal environment
+
+
+```{r}
+p_difference_from_median <- animal_prev_wconf %>% 
+  group_by(Animal_Source) %>% 
+  mutate(diff_to_median = (proportion-median(proportion))) %>% 
+  mutate(tra_gene = fct_relevel(tra_gene,as.character(TRA_GENES_GROUP$TRA_GENES))) %>% 
+  ggplot() + 
+  geom_bar(aes(x = tra_gene, y = diff_to_median, fill = Animal_Source),width = 0.6,stat = "identity",position = position_dodge2()) +  scale_fill_manual(values = animal_colours,name = "Animal Environment") +theme_manuscript +theme(axis.text.x = element_blank(), axis.title.x = element_blank()) +  theme_legend_inside_left_bottom_manuscript + ylab("Gene frequency difference\nto  environment-specific median") 
+
+
+p_difference_from_median/gene_tiles +  plot_layout(axes = "collect", heights = c(10,1)) 
+
+ggsave(filename = paste0(plot_folder,'/','difference_from_median.pdf'),width = 20, height = 14, units = "cm") 
+```
+

@@ -1,0 +1,507 @@
+---
+title: "Logistic regression analysis"
+author: "Sneha Sundar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r setup, include=FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 1, digits = 3)
+```
+
+Script and statistics for Figures 3B, S3 and Tables S3, S4, S5. 
+
+## Libraries
+
+```{r}
+library(here)
+library(tidyverse)
+library(easystats)
+library(emmeans)
+library(pROC)
+library(epitools) #calculation of binomial confidence intervals
+source(here("code/000.tools/helpers.R"))
+source(here("code/000.tools/plot.R"))
+```
+
+## Load main dataset
+
+Input summary table for all genomes. 
+```{r}
+genome_summary_df <- read.table(here("data/processed/002.find_genes/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/genome_tra_count_summary.tsv"),header = T,sep = '\t', quote = "")
+
+```
+
+Plots folder
+```{r}
+plots_folder <- here("data/processed/manuscript_plots/004.reg")
+
+```
+
+## Testing associations between variables
+
+
+Pearson's chi-squared test of independence 
+
+```{r}
+associations_test <- function(var1, var2, df = genome_summary_df){
+  freq_table <- table(df[[var1]], df[[var2]])
+  print(freq_table)
+  
+  model.chi <- chisq.test(freq_table)
+  
+  effectsize.modelchi <- chisq_to_cramers_v(chisq = model.chi$statistic, n = length(df[[var1]]), nrow=nrow(model.chi$observed), ncol=ncol(model.chi$observed), adjust = T, alternative = "two.sided")
+  
+ return(c(V1 = var1, V2 = var2,model.chi$statistic, model.chi$parameter, p.val = model.chi$p.value,effectsize.modelchi))
+}
+```
+
+
+```{r}
+variables <- c("Generic_Host","PhG", "Source_Niche", "Acq_Resist")
+
+variable_combinations <- combn(variables, 2) %>% t()
+
+associations_df  <- mapply(FUN = associations_test,variable_combinations[,1],variable_combinations[,2],SIMPLIFY = T,USE.NAMES = F)
+
+associations_df<- associations_df %>% t() 
+
+
+write.table(associations_df,file =  paste0(plots_folder,"/","variable_associations_n1200.tsv"),sep = "\t",row.names = F,quote = F)
+```
+
+## Logistic regression analysis 
+
+
+## Selection of variables 
+
+
+### Main effects
+
+```{r}
+test_df <- genome_summary_df %>% 
+            select(Generic_Host, PhG, Source_Niche, is.functional, Acq_Resist) %>% 
+            mutate(Generic_Host = factor(Generic_Host), 
+                   is.functional = (is.functional*1), 
+                   PhG = factor(PhG),                                     
+                   Source_Niche = as.factor(Source_Niche),
+                   Acq_Resist = as.factor(Acq_Resist))
+```
+
+Main effect model with the lowest AIC. 
+
+```{r}
+variables <- c("Generic_Host","PhG", "Source_Niche", "Acq_Resist")
+
+variable_combinations <- combn(variables, 2) %>% t()
+variable_combinations
+paste0("is.functional ~ ",variable_combinations[,1]," + ", variable_combinations[2])
+
+
+get_formula_strings <- function(vars, subset){
+  combinations <- combn(vars, subset) %>% t()
+  
+  result <- apply(combinations, 1, function(x) paste(x, collapse = "+"))
+  return(result)
+}
+
+covariates <- c(get_formula_strings(variables,subset = 1),get_formula_strings(variables,subset = 2),get_formula_strings(variables,subset = 3),get_formula_strings(variables,subset = 4))
+
+get_aic_submodel <- function(covariate, response_variable = "is.functional",dat = test_df){
+  formula.string <- paste0(response_variable," ~ ",covariate)
+  log_submodel <- glm(formula = as.formula(formula.string),family = "binomial", data = dat)
+  return(c(Residual_df = log_submodel$df.residual,Residual_deviance  = log_submodel$deviance, AIC = log_submodel$aic))
+}
+
+model_selection_table <- sapply(covariates, FUN = get_aic_submodel) %>% t()
+
+get_aic_submodel(covariates[1])
+
+model_selection_table <- model_selection_table %>% as.data.frame() %>% rownames_to_column("Variables")
+```
+
+## Table S4: Main effects model selection
+
+```{r}
+write.table(model_selection_table,paste0(plots_folder,"/","main_effects_model_selection_table.tsv"),sep = "\t",quote = F,row.names = F)
+```
+
+
+Testing for main effects
+
+```{r}
+full_main_effects <- glm(is.functional ~ Generic_Host + PhG + Source_Niche + Acq_Resist, data = test_df, family = "binomial")
+
+step(full_main_effects,direction = "backward")
+
+anova(full_main_effects,test = "LRT") 
+
+```
+
+### Interactions
+
+
+```{r}
+model_host_phg <- glm(is.functional ~ Generic_Host + PhG + Source_Niche + Acq_Resist + Generic_Host: PhG, data = test_df, family = "binomial")
+
+model_host_resist <-  glm(is.functional ~ Generic_Host + PhG + Source_Niche + Acq_Resist + Generic_Host:Acq_Resist, data = test_df, family = "binomial")
+
+model_host_source_niche <- glm(is.functional ~ Generic_Host + PhG + Source_Niche + Acq_Resist + Generic_Host:Source_Niche, data = test_df, family = "binomial")
+
+model_host_resist <-  glm(is.functional ~ Generic_Host + PhG + Source_Niche + Acq_Resist + Generic_Host:Acq_Resist, data = test_df, family = "binomial")
+
+model_PhG_source_niche <-  glm(is.functional ~ Generic_Host + PhG + Source_Niche + Acq_Resist + PhG:Source_Niche, data = test_df, family = "binomial")
+
+
+model_PhG_resist <-  glm(is.functional ~ Generic_Host + PhG + Source_Niche + Acq_Resist + PhG:Acq_Resist, data = test_df, family = "binomial")
+
+model_source_Niche_resist <-  glm(is.functional ~ Generic_Host + PhG + Source_Niche + Acq_Resist + Source_Niche:Acq_Resist, data = test_df, family = "binomial")
+
+
+model_list <- list(
+  "Animal Environment × PhG" = model_host_phg,
+  "Animal Environment × ARG Presence" = model_host_resist,
+  "Animal Environment × Sample Source" = model_host_source_niche,
+  "PhG × ARG Presence" = model_PhG_resist,
+  "PhG × Sample Source" = model_PhG_source_niche,
+  "Sample Source × ARG Presence" = model_source_Niche_resist
+)
+
+
+interaction_results <- do.call(
+  rbind,
+  lapply(names(model_list), function(name) {
+    cbind(
+      Interaction_Term = name,
+      extract_lrt(model_list[[name]], full_main_effects)
+    )
+  })
+)
+
+interaction_results <- do.call(
+  rbind,
+  lapply(names(model_list), function(name) {
+    cbind(
+      Interaction_Term = name,
+      extract_lrt(model_list[[name]], full_main_effects)
+    )
+  })
+)
+
+row.names(interaction_results) <- NULL
+
+
+
+```
+## Table: selecting interaction terms. 
+
+```{r}
+write.table(interaction_results, paste0(plots_folder,"/","interaction_effects_model_selection_table.tsv"),sep = "\t",quote = F,row.names = F)
+```
+
+
+
+
+We tested whether adding one more interaction term improves model fit and it does not. 
+```{r}
+model_PhGresist_hostPhG <-  glm(is.functional ~ Generic_Host + PhG + Source_Niche + Acq_Resist + PhG:Acq_Resist + Generic_Host:PhG, data = test_df, family = "binomial")
+
+
+anova(model_PhG_resist,model_PhGresist_hostPhG,test = "Chisq")
+
+extractAIC(model_PhGresist_hostPhG)
+```
+
+
+## Final Model selected: Main effects: Generic_Host, Sample Source, PhG, Acq_Resist + interaction between PhG and Acq_resistance  
+
+
+```{r}
+summary(model_PhG_resist)
+```
+
+
+## Estimate Marginal Means
+
+
+```{r}
+host_em <- emmeans(model_PhG_resist,"Generic_Host", type = "response",infer = c(T, T))
+
+source_em <- emmeans(model_PhG_resist, "Source_Niche",type = "response",infer = c(T, T))
+
+phg_em <- emmeans(model_PhG_resist, "PhG",type = "response",infer = c(T, T))
+
+resist_em <- emmeans(model_PhG_resist, "Acq_Resist",type = "response",infer = c(T, T))
+
+
+PhG_Acq_resist_em <- emmeans(model_PhG_resist, pairwise~ PhG|Acq_Resist,type = "response",infer = c(T, T))
+
+Acq_resist_PhG_em <- emmeans(model_PhG_resist, pairwise~ Acq_Resist | PhG ,type = "response",infer = c(T, T))
+```
+
+
+## Estimating simple pairwise contrasts between for main effects. 
+
+```{r}
+host_contrast <- contrast(host_em, list(`Poultry  vs. Bovine` = c(-1,1,0), 
+                       `Swine  vs. Bovine` = c(-1,0,1),
+                       `Swine vs. Poultry` = c(0,-1, 1)),adjust = "sidak", options = list("infer" = c(T,T))) %>% 
+  as.data.frame() %>% 
+  mutate(Variable = "Animal Environment")
+
+host_contrast
+
+source_contrast <-  contrast(source_em, list(`Food vs. Livestock` = c(1,-1)),adjust = "sidak", options = list("infer" = c(T,T))) %>% 
+   as.data.frame() %>% 
+  mutate(Variable = "Sample Source")
+
+resist_contrast <- contrast(resist_em, list(`Yes vs. No` = c(-1, 1)),adjust = "sidak", options = list("infer" = c(T,T))) %>% 
+   as.data.frame() %>% 
+  mutate(Variable = "ARG presence")
+
+#phg contrasts
+phgs <- levels(phg_em)$PhG
+# c("A", "B1", "B2", "C", "D", "E", "F")
+
+pair_contrast <- function(x, y, levels) {
+  w <- rep(0, length(levels))
+  names(w) <- levels
+  w[x] <-  1
+  w[y] <- -1
+  w
+}
+
+priority <- c("A", "E")
+ordered_levels <- c(priority, setdiff(phgs, priority))
+
+
+contrast_list <- list()
+
+for (i in seq_len(length(ordered_levels) - 1)) {
+  for (j in (i + 1):length(ordered_levels)) {
+    x <- ordered_levels[i]
+    y <- ordered_levels[j]
+    name <- paste(x, "vs.", y)
+    contrast_list[[name]] <- pair_contrast(x, y, phgs)
+  }
+}
+
+
+phg_contrast <- contrast(phg_em, contrast_list, adjust = "sidak", options = list("infer" = c(T,T))) %>% as.data.frame() %>% 
+  mutate(Variable = "PhG")
+```
+```{r}
+main_effects_contrasts <- rbind(host_contrast %>% as.data.frame(),
+                           source_contrast %>% as.data.frame(),
+                           phg_contrast %>% as.data.frame(),
+                           resist_contrast %>% as.data.frame())
+```
+Interaction contrasts
+
+```{r}
+PhG_Acq_resist_contrast <-  contrast(PhG_Acq_resist_em, contrast_list, adjust = "sidak", options = list("infer" = c(T,T))) %>% as.data.frame() %>% mutate(Variable = paste0("Given ARG presence = ",Acq_Resist)) %>% select(-Acq_Resist)
+
+
+
+Acq_resist_PhG_contrast <- contrast(Acq_resist_PhG_em,list(`Yes vs. No` = c(-1,1)), adjust = "sidak", options = list("infer" = c(T,T))) %>% as.data.frame() %>% mutate(Variable = paste0("Given PhG = ",PhG)) %>% select(-PhG)
+
+
+interaction_effects_contrasts <- rbind(
+                           Acq_resist_PhG_contrast %>% as.data.frame(), 
+                           PhG_Acq_resist_contrast %>% as.data.frame())
+
+
+
+interaction_effects_contrasts %>% filter(p.value < 0.05)
+
+```
+
+Multiple testing correction was done within each variable using Tukey method implemented in emmeans. Tukey method works well for pairwise contrasts. Bonferonni was too strict. Holm was a bit relaxed (significance reaches even if 95% confidence limits crosses 1).
+
+## Plots
+
+## Main effect plots
+
+
+```{r}
+lim <- c(0.01,40)
+
+p_host <- ggplot(host_contrast %>% mutate(contrast = factor(contrast, levels = rev(contrast)))%>% mutate(p_sig = (p.value<0.05)), aes(x = odds.ratio, y = contrast,color = p_sig)) +
+  geom_point(size = 2) +
+  geom_errorbarh(aes(xmin = asymp.LCL, xmax = asymp.UCL,color = p_sig), height = 0.2, linewidth=0.8) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey",linewidth = 0.8) +
+  labs(x = "Odds Ratio",
+       y = "Contrast") +  
+   scale_x_log10( limits = lim,labels = scales::trans_format("log10", scales::math_format(10^.x))) + 
+   scale_color_manual(values = binary_colours2) +
+  #annotation_logticks(sides="b",outside = F) + 
+   theme_manuscript+  theme(panel.grid.minor  = element_blank()) + labs(subtitle = "Animal Environment") +
+  guides(color = "none")
+
+p_host
+
+p_phg <- ggplot(phg_contrast %>% mutate(contrast = factor(contrast, levels = rev(contrast)))%>% mutate(p_sig = (p.value<0.05)), aes(x = odds.ratio, y = contrast,color = p_sig)) +
+  geom_point(size = 2) +
+  geom_errorbarh(aes(xmin = asymp.LCL, xmax = asymp.UCL,color = p_sig), height = 0.2, linewidth=0.8) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey",linewidth = 0.8) +
+  labs(x = "Odds Ratio",
+       y = "Contrast") +  
+  scale_x_log10( limits = lim,labels = scales::trans_format("log10", scales::math_format(10^.x))) +  
+   scale_color_manual(values = binary_colours2) +
+  #annotation_logticks(sides="b",outside = F) + 
+   theme_manuscript+  theme(panel.grid.minor  = element_blank())  + labs(subtitle = "PhG") +
+  guides(color = "none")
+
+p_phg
+
+source_contrast %>% mutate(contrast = factor(contrast, levels = rev(contrast))) %>% 
+                     mutate(p_sig = (p.value<0.05))
+
+p_source <- ggplot(source_contrast %>% mutate(contrast = factor(contrast, levels = rev(contrast))) %>% 
+                     mutate(p_sig = (p.value<0.05)), aes(x = odds.ratio, y = contrast,color = p_sig)) +
+  geom_point(size = 2) +
+  geom_errorbarh(aes(xmin = asymp.LCL, xmax = asymp.UCL,color = p_sig), height = 0.2, linewidth=0.8) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey",linewidth = 0.8) +
+  labs(x = "Odds Ratio",
+       y = "Contrast") +  
+  scale_x_log10( limits = lim,labels = scales::trans_format("log10", scales::math_format(10^.x))) + 
+   scale_color_manual(values = c("FALSE" = "grey", "TRUE" = "black")) +
+  #annotation_logticks(sides="b",outside = F) + 
+   theme_manuscript+  theme(panel.grid.minor  = element_blank())  + labs(subtitle = "Sample Source")+
+  guides(color = "none")
+
+p_source
+
+
+p_resist <- ggplot(resist_contrast %>% mutate(contrast = factor(contrast, levels = rev(contrast))) %>% mutate(p_sig = (p.value<0.05)), aes(x = odds.ratio, y = contrast,color = p_sig)) +
+  geom_point(size = 2) +
+  geom_errorbarh(aes(xmin = asymp.LCL, xmax = asymp.UCL,color = p_sig), height = 0.2, linewidth=0.8) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey",linewidth = 0.8) +
+  labs(x = "Odds Ratio",
+       y = "Contrast") +  
+  scale_x_log10( limits = lim,labels = scales::trans_format("log10", scales::math_format(10^.x))) +  
+  #annotation_logticks(sides="b",outside = F) + 
+   scale_color_manual(values = binary_colours2) +
+   theme_manuscript+  theme(panel.grid.minor  = element_blank()) + labs(subtitle = "ARG presence") +
+  guides(color = "none")
+
+  
+p_resist
+
+```
+
+
+
+## Main effects (all)
+
+```{r}
+design <- "AB
+           AB
+           CB
+           DB"
+
+p_contrasts_split <- p_host + p_phg+ p_source + p_resist +  plot_layout( design = design,axes = "collect",ncol = 4) 
+
+
+ggsave(paste0(plots_folder,"/","contrasts_main_pval_all.pdf"),p_contrasts_split, units = "cm",height = 14, width = 20, dpi = 600)
+```
+
+## Interaction contrasts (all)
+
+
+```{r}
+#given PhG A: Yes vs. No
+lim <- c(0.001,1000)
+
+p1 <- Acq_resist_PhG_contrast %>% filter(contrast == "Yes vs. No", Variable == "Given PhG = A")  %>% 
+ 
+  mutate(contrast = factor(contrast, levels = rev(contrast))) %>% 
+    mutate(p_sig = (p.value<0.05)) %>% 
+  ggplot(aes(x = odds.ratio, y = contrast,color = p_sig)) +
+  geom_point(size = 2) +
+  geom_errorbarh(aes(xmin = asymp.LCL, xmax = asymp.UCL,color = p_sig), height = 0.2, linewidth=0.8) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey",linewidth = 0.8) +
+  labs(x = "Odds Ratio",
+       y = "Contrast",
+       subtitle = "Given PhG = A") +  
+  scale_x_log10( limits = lim,labels = scales::trans_format("log10", scales::math_format(10^.x))) + 
+   scale_color_manual(values = binary_colours2) +
+  #annotation_logticks(sides="b",outside = F) + 
+   theme_manuscript+  theme(panel.grid.minor  = element_blank()) +
+  guides(color = "none")
+
+p2 <- Acq_resist_PhG_contrast %>% filter(contrast == "Yes vs. No", Variable == "Given PhG = B2")   %>% 
+  mutate(contrast = factor(contrast, levels = rev(contrast))) %>% 
+    mutate(p_sig = (p.value<0.05)) %>% 
+  ggplot(aes(x = odds.ratio, y = contrast,color = p_sig)) +
+  geom_point(size = 2) +
+  geom_errorbarh(aes(xmin = asymp.LCL, xmax = asymp.UCL,color = p_sig), height = 0.2, linewidth=0.8) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey",linewidth = 0.8) +
+  labs(x = "Odds Ratio",
+       y = "Contrast",
+       subtitle = "Given PhG = B2") +  
+  scale_x_log10( limits = lim,labels = scales::trans_format("log10", scales::math_format(10^.x))) + 
+   scale_color_manual(values = binary_colours2) +
+  #annotation_logticks(sides="b",outside = F) + 
+   theme_manuscript+  theme(panel.grid.minor  = element_blank()) +
+  guides(color = "none")
+
+p1+p2
+```
+
+Given ARG presence, contrasts between phylogroups
+
+```{r}
+p3 <- PhG_Acq_resist_contrast %>% filter(Variable == "Given ARG presence = No")  %>%  
+  mutate(contrast = factor(contrast, levels = rev(contrast))) %>%
+  mutate(p_sig = (p.value<0.05)) %>% 
+  ggplot(aes(x = odds.ratio, y = contrast,color = p_sig)) +
+  geom_point(size = 2) +
+  geom_errorbarh(aes(xmin = asymp.LCL, xmax = asymp.UCL,color = p_sig), height = 0.2, linewidth=0.8) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey",linewidth = 0.8) +
+  labs(x = "Odds Ratio",
+       y = "Contrast",
+       subtitle = "Given ARG presence = No") +  
+  scale_color_manual(values = binary_colours2) +
+  scale_x_log10( limits = lim,labels = scales::trans_format("log10", scales::math_format(10^.x))) + 
+  #annotation_logticks(sides="b",outside = F) + 
+   theme_manuscript+  theme(panel.grid.minor  = element_blank()) +
+  guides(color = "none")
+
+p3
+
+p4 <- PhG_Acq_resist_contrast %>% filter(Variable == "Given ARG presence = Yes")  %>%  
+  mutate(contrast = factor(contrast, levels = rev(contrast))) %>% 
+   mutate(p_sig = (p.value<0.05)) %>% 
+  ggplot(aes(x = odds.ratio, y = contrast,color = p_sig)) +
+  geom_point(size = 2) +
+  geom_errorbarh(aes(xmin = asymp.LCL, xmax = asymp.UCL,color = p_sig), height = 0.2, linewidth=0.8) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "grey",linewidth = 0.8) +
+  labs(x = "Odds Ratio",
+       y = "Contrast",
+       subtitle = "Given ARG presence = Yes") + 
+   scale_color_manual(values = binary_colours2) +
+  scale_x_log10( limits = lim,labels = scales::trans_format("log10", scales::math_format(10^.x))) + 
+  #annotation_logticks(sides="b",outside = F) + 
+   theme_manuscript+  theme(panel.grid.minor  = element_blank()) +
+  guides(color = "none")
+
+
+p4
+
+```
+```{r}
+design <- "AABBCC
+           AABBDD
+           AABB##
+           AABB##"
+
+p_contrasts_split <- p3+p4+p1+p2  + plot_layout(design = design, axes = "collect_x") 
+
+ggsave(paste0(plots_folder,"/","contrasts_interactions_all.pdf"),p_contrasts_split, units = "cm",height = 14, width = 20, dpi = 600)
+
+```
+
+

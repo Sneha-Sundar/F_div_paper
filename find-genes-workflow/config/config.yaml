@@ -1,0 +1,35 @@
+#note: this is a sample config file. You will need to change the paths to match your system.
+
+#list of genome ids
+samples: config/BioSample_ecoli.txt 
+
+#folder where the genomes are stored
+genomes_folder: ../data/raw/pires_1200/Ecoli
+
+#folder where the results will be stored
+out_folder: ../data/processed/results
+
+#where conda environments are stored
+conda_env: miniconda3/envs  
+
+#where conda environment yaml files are stored
+conda_yaml: ../code/000.tools/envs
+
+#reference transfer gene sequences for tblastn search and parameters 
+tblastn:
+  ref_seq_file: ../data/processed/002.find_genes/reference_tra_genes/tra_ref_genes_nodup.fasta
+  eval: 0.001
+  codon_table: 11
+
+#location of databases for specific tools. You will need to change these paths to match your system.
+bakta:
+  bakta_db: ../databases/bakta/db  
+
+genomad:
+  genomad_db: ../databases/genomad_db
+
+plasmidfinder:
+  plasmidfinder_db: ../databases/plasmidfinder_db
+  
+  
+  

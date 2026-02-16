@@ -1,0 +1,18 @@
+configfile: "config/config.yaml"
+
+include: "rules/common.smk"
+include: "rules/find_genes.smk"
+
+#------------------------
+
+
+onerror:
+    print("\terror occurred\n")	
+
+onsuccess:
+    print("\tSuccess!\n")	
+
+##### Target rules #####
+rule all:
+    input:
+        get_plasmidfinder_output()

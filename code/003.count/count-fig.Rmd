@@ -1,0 +1,548 @@
+---
+title: "count-fig"
+author: "Sneha Sundar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE, warning = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen = 1, digits = 3)
+```
+
+Script and statistics for Figure 2, S2 and Table S2. 
+
+## Libraries
+
+```{r}
+library(here)
+library(tidyverse)
+library(easystats)
+library(epitools) #calculation of binomial confidence intervals
+source(here("code/000.tools/helpers.R"))
+source(here("code/000.tools/plot.R"))
+```
+
+Input summary table for all genomes. 
+```{r}
+genome_summary_df <- read.table(here("data/processed/002.find_genes/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/genome_tra_count_summary.tsv"),header = T,sep = '\t', quote = "")
+
+```
+
+Plots folder
+```{r}
+plots_folder <- here("data/processed/manuscript_plots/003.count")
+
+```
+
+# Relevant numbers
+
+
+```{r}
+summary(genome_summary_df$bakta.n_hits_genome)
+
+table(genome_summary_df$bakta.n_hits_genome_category)
+#categories for splitting up the distribution
+
+table(genome_summary_df$bakta.n_hits_genome_category)/1200
+
+#number of genomes with no hits
+1200 - sum(genome_summary_df$has_tra_hit)
+
+sum(genome_summary_df$has_tra_hit)/1200
+```
+How many genomes have between 1 and 4 hits? 
+```{r}
+(412-328)/1200
+```
+
+How many genomes have between more than 35 hits? 
+
+```{r}
+sum(genome_summary_df$bakta.n_hits_genome > 35)
+sum(genome_summary_df$bakta.n_hits_genome > 35)/1200
+
+```
+
+How many genomes have between more than 23 hits but are functionally incomplete?
+
+```{r}
+prop.table(table(genome_summary_df$bakta.n_hits_genome >= 35, genome_summary_df$functional_category),1)
+```
+
+
+## F-transfer operon prevalence
+
+## Estimating confidence intervals for proportions: do we need to bootstrap?
+
+If samples are independent and the sample size is large enough , then we can approximate the sampling distribution of $\hat{p}$ as a normal distribution. 
+
+Conditions:
+1. are samples independent ? 
+2. is $np \geq 10$ and $n(1-p) \geq 10$
+
+Conclusion: We do not need to bootstrap . 
+
+Confidence interval formula
+
+If $n$ is the sample size, 
+$\hat{p}$ is the point estimate for the proportion,
+SE is the standard error of proportion
+z is the critical value based on the normal distribution . For 95\% confidence intervals, it would be 1.96
+
+$$
+\hat{p} \pm z \times SE \\
+SE = \sqrt{\hat{p}\frac{(1 - \hat{p})}{n}}
+$$
+### Transfer gene Based
+
+```{r}
+thres = 5
+
+genome_summary_df %>% filter(bakta.n_distinct_hits >= thres) %>% nrow()
+
+genome_summary_df %>% filter(bakta.n_distinct_hits >= thres) %>% nrow()/1200
+```
+
+
+```{r}
+thres = 1
+
+genome_summary_df %>% filter(bakta.n_distinct_hits >= thres) %>% nrow()
+
+genome_summary_df %>% filter(bakta.n_distinct_hits >= thres) %>% nrow()/1200
+```
+
+
+### Replicon based
+
+```{r}
+sum(genome_summary_df$has.incF_replicon)
+
+sum(genome_summary_df$has.incF_replicon)/1200
+```
+
+
+Within each animal niche
+
+
+```{r}
+thres = 5
+
+animal_niche.prev <- genome_summary_df %>% group_by(Generic_Host) %>% summarise(n_Fplasmid.transfer_gene = sum(bakta.n_distinct_hits>=thres)) %>% 
+  mutate(prev.transfer_gene = n_Fplasmid.transfer_gene/400) %>% left_join(genome_summary_df %>% group_by(Generic_Host) %>% summarise(n_Fplasmid.replicon = sum(has.incF_replicon)) %>% mutate(prev.replicon = n_Fplasmid.replicon/400)
+)
+
+animal_niche.prev <- animal_niche.prev %>% pivot_longer(cols = !Generic_Host, names_to = c(".value","marker"),names_sep = "\\." )
+
+animal_niche.prev$marker = factor(animal_niche.prev$marker,levels = c("transfer_gene","replicon"),labels = c("transfer gene", "replicon"))
+
+#we are using normal approximation to the binomial to calculated the confidence intervals
+animal_niche.prev <- animal_niche.prev %>% mutate(lower.95CI =  binom.approx(n_Fplasmid,400) %>% pull(lower),
+                             upper.95CI = binom.approx(n_Fplasmid,400) %>% pull(upper) )
+
+
+animal_niche.prev
+```
+
+## Statistics for differences in F-like transfer operon prevalence between animal environments. 
+```{r}
+freq_table.3 <- table(genome_summary_df$Generic_Host,genome_summary_df$bakta.n_distinct_hits>=thres)
+
+freq_table.3
+
+prop.test(freq_table.3[,"TRUE"], n = c(400,400,400))
+
+pairwise.prop.test(freq_table.3[,"TRUE"],
+                   n = c(400,400,400)
+
+)
+
+```
+## Statistics for differences in F-like replicon prevalence between animal environments.
+
+```{r}
+
+freq_table.3 <- table(genome_summary_df$Generic_Host,genome_summary_df$has.incF_replicon)
+
+freq_table.3
+
+prop.test(freq_table.3[,"TRUE"], n = c(400,400,400))
+
+pairwise.prop.test(freq_table.3[,"TRUE"],
+                   n = c(400,400,400)
+
+)
+
+
+```
+
+
+
+```{r}
+overall.prev <- animal_niche.prev %>% group_by(marker) %>%  summarise(n_Fplasmid = sum(n_Fplasmid),prev = sum(n_Fplasmid)/1200) %>% mutate(Generic_Host = "Overall") %>%  mutate(lower.95CI =  binom.approx(n_Fplasmid,1200) %>% pull(lower),
+                             upper.95CI = binom.approx(n_Fplasmid,1200) %>% pull(upper))
+
+animal_niche.prev <- rbind(animal_niche.prev, overall.prev)
+
+animal_niche.prev
+
+overall.prev
+
+
+```
+
+
+
+## Figure: Replicon vs. transfer gene based prevalences overall and in each livestock environment. 
+
+```{r}
+pd <- position_dodge(0.4)
+
+
+p <- animal_niche.prev %>% mutate(Generic_Host = factor(Generic_Host,levels = c("Overall","Bovine","Swine", "Poultry"))) %>% 
+  ggplot(aes(x= Generic_Host, y = prev, group = marker, color = marker)) +
+  geom_errorbar(aes(x = Generic_Host, ymin = lower.95CI, ymax = upper.95CI, color = marker, group = marker),position = pd,width = 0.2) + 
+  geom_point(position = pd, size = 3) + 
+  ylim(c(0,1))+
+  ylab("Prevalence") +
+  xlab("Animal Host") + 
+  scale_color_manual(values = replicon_transfer_gene_colors,name = "marker") + 
+  theme_manuscript +
+  theme_legend_inside_right_bottom_manuscript
+
+print(p)
+
+
+ggsave(paste0(plots_folder,"/","transfervsreplicon_prev.svg"),p, units = "cm",height = 8, width = 8, dpi = 600)
+```
+
+
+## Figure: What is the fraction of genomes with an IncF replicon that also has the transfer operon? 
+
+```{r}
+
+thres = 5
+genome_summary_df <- genome_summary_df %>% 
+  mutate(has_transfer_operon = factor(bakta.n_distinct_hits>=thres,levels = c(F,T),labels=c("no","yes")))
+
+#overall: #how many genomes that have an IncF replicon were missing an F-like transfer operon
+genome_summary_df %>% group_by(has.incF_replicon)  %>% 
+  summarise(ngenomes = n(),n_Fplasmid.transfer_gene = sum(bakta.n_distinct_hits>=thres), prev = n_Fplasmid.transfer_gene/ngenomes) %>% 
+  mutate(prev.no.transfer.gene = 1-prev)
+
+
+prop.table(table(genome_summary_df$has.incF_replicon,genome_summary_df$functional_category),1)
+
+```
+
+
+```{r}
+genome_summary_df %>% 
+  group_by(has.incF_replicon, Generic_Host)  %>% 
+  summarise(ngenomes = n(),n_Fplasmid.transfer_gene = sum(bakta.n_distinct_hits>=thres), prev = n_Fplasmid.transfer_gene/ngenomes) %>% 
+  mutate(prev.no.transfer.gene = 1-prev)
+```
+
+```{r}
+
+p <- genome_summary_df %>% 
+  mutate(Generic_Host = factor(Generic_Host, levels = c("Bovine","Swine","Poultry")),
+         has.incF_replicon = factor(has.incF_replicon, levels = c(F,T), labels = c("no","yes"))) %>% 
+ggplot() + geom_bar(aes(x = has.incF_replicon,fill= has_transfer_operon))  + facet_wrap(vars(Generic_Host)) + scale_fill_manual(values = has_transfer_operon_colours, name = "Presence of F-like transfer operon") + ylab("Number of genomes") + xlab("Presence of IncF replicon") +  theme_manuscript + theme(legend.position = "top")
+
+p
+
+ggsave(paste0(plots_folder,"/","has_transfer_operon_by_replicon_presence.svg"),p, units = "cm",height = 8, width = 12, dpi = 600)
+```
+
+
+## Figure: How does prevalence change depending on the marker gene detection threshold you use? 
+
+```{r}
+threshold = seq(1:35)
+
+compute_transfer_operon_prevalence <- function(thres, dataset = "all"){
+  
+  if(dataset == "all"){
+    prev.table <- genome_summary_df %>% 
+      summarise(Generic_Host = "all",n = n(),
+                n_Fplasmid.transfer_gene =sum(bakta.n_distinct_hits>=thres)) %>%
+      mutate(threshold = thres, 
+             prev.transfer_gene = n_Fplasmid.transfer_gene/n)
+  }else if(dataset=="animal"){
+  prev.table <- genome_summary_df %>% 
+    group_by(Generic_Host) %>% 
+    summarise(n = n(), 
+              n_Fplasmid.transfer_gene = sum(bakta.n_distinct_hits>=thres)) %>%
+    mutate(threshold = thres, prev.transfer_gene = n_Fplasmid.transfer_gene/n)
+  }
+  
+  return(prev.table)
+
+  }
+
+
+transfer_operon_prev_animal  <- bind_rows(lapply(threshold, compute_transfer_operon_prevalence,"animal"))
+
+transfer_operon_prev_overall  <- bind_rows(lapply(threshold, compute_transfer_operon_prevalence,"all"))
+
+transfer_operon_prev_table <- rbind(transfer_operon_prev_overall, transfer_operon_prev_animal)
+
+transfer_operon_prev_table <- transfer_operon_prev_table %>% mutate(lower.95CI = binom.approx(n_Fplasmid.transfer_gene,n) %>% pull(lower),
+                             upper.95CI = binom.approx(n_Fplasmid.transfer_gene,n) %>% pull(upper))
+
+
+transfer_operon_prev_animal
+```
+
+
+```{r}
+colours <- c(animal_colours,c("all" = "black"))
+p <- transfer_operon_prev_table  %>% ggplot(aes(x = threshold, y = prev.transfer_gene, group = Generic_Host,color = Generic_Host)) + 
+  geom_line() + 
+  geom_point() + 
+  geom_vline(xintercept = 5,linetype = "dashed",linewidth=1.2,color="grey") + 
+theme_manuscript + scale_color_manual(values = colours) + 
+  scale_x_continuous(breaks = seq(0,35,5)) + 
+  scale_y_continuous(limits = c(0,1),n.breaks = 8) + 
+  xlab("Marker gene detection threshold") + 
+  ylab("Transfer operon prevalence") + guides(color = guide_legend("Dataset")) + 
+  #ggtitle("Transfer operon prevalence") + 
+  theme_legend_inside_right_top_manuscript 
+  
+ggsave(paste0(plots_folder,"/","transfer_prev_by_marker_gene_threshold.svg"),p, units = "cm",height = 8, width = 12, dpi = 600)
+
+
+transfer_operon_prev_table
+
+p
+```
+
+## Figure: Operon completeness by livestock environment
+
+
+## F-like transfer operon completeness differs by animal host. 
+
+
+```{r}
+
+
+category_counts_functional_completeness <- genome_summary_df %>% group_by(Generic_Host) %>% 
+  count(functional_category) %>%
+  mutate(prop = n / sum(n)) %>% 
+  mutate(functional_category = factor(functional_category,levels = c("missing", "incomplete","complete"),ordered = T),
+    ypos = cumsum(prop)-0.3*prop,
+         label = scales::percent(prop, accuracy = 0.1))
+
+category_counts_functional_completeness
+
+
+p1 <- ggplot(category_counts_functional_completeness, aes(x = Generic_Host, y = n, fill = functional_category)) +
+   geom_bar(position = 'stack',stat = "identity")  +
+  themeBW +
+  scale_fill_manual(
+    values = functional_colours,  name = "Functional completeness") +
+  theme( legend.position = "right", legend.key.size = unit(0.4, "cm")) + 
+  #geom_text(aes(x = Generic_Host, label = scales::percent(prop,accuracy = 1)), size = 4,position = position_stack(vjust = 0.5)) + 
+  ylab("Number of genomes") + xlab("Animal Environment")  +  theme_manuscript + guides(fill = "none")
+
+ggsave(paste0(plots_folder,"/","barchart_functional_completeness_fill_function.svg"),p1, units = "cm",height = 8, width = 8, dpi = 600)
+p1
+```
+
+## Figure: Histogram of number of transfer gene hits per animal host. 
+
+
+```{r}
+binwid = 1
+
+p2 <- genome_summary_df %>% ggplot(aes(x = bakta.n_hits_genome)) + 
+  geom_histogram(aes(fill = functional_category), binwidth = binwid) +
+  facet_wrap(~Generic_Host, nrow = 3,strip.position = "right") + 
+  scale_x_continuous(name = "Number of transfer gene hits") +
+  scale_y_continuous(name = "Number of genomes") +
+  scale_fill_manual(
+    values = functional_colours, name = "Functional completeness")  + theme_manuscript + guides(fill = "none") 
+
+
+
+ggsave(paste0(plots_folder,"/","bakta_n_hits_by_generic_host.svg"),p2, units = "cm",height = 10, width = 14, dpi = 600)
+p2
+```
+
+
+
+Distribution of the number of transfer gene hits found on a genome (gray), shown as proportion of total number of genomes coming from a specific animal source (shaded). Binwidth was set to `r binwid`. 
+
+Overall, the median number of transfer gene hits found on a genome was `median(genome_summary_df$bakta.n_hits_genome_category)`. 
+In 412 genomes (34.33 %), we could detect less than 5 hits, out of which 328 (27.33 %) genomes had no detected F-like transfer gene. In 583 genomes (48.5 %), we could detect between 23 and 35 hits, potentially indicating a single putatively functional F-like transfer operon in these genomes. Genomes having between 5 and 22 detected hits, which indicate partial F-like transfer operons, are rare (95 genomes, 7.92 %). In 110 genomes, at least one marker gene was found more than once. Interestingly, we find no peak at around 60 transfer genes, which is what we would expect if there are two F-like transfer operons in the same genome. Instead, a partial set of the marker gene set used is detected more than once. One outlier from Swine though has 84 detected hits.
+
+# Statistics: Is there an assocation between animal source and functional category?
+
+pearson's chi-squared test of independence 
+
+H0: There is no association between animal source and functional category.
+H1: There is an association between animal source and functional category.
+```{r}
+freq_table <- table(genome_summary_df$Generic_Host, genome_summary_df$functional_category)
+
+freq_table
+
+model.chi <- chisq.test(freq_table)
+
+model.chi$stdres
+
+```
+
+
+```{r}
+prop.table(freq_table, margin = 1)
+
+chiq_post_hoc_table <- chisq.posthoc.test::chisq.posthoc.test(freq_table, method = "bonferroni")
+
+#here since there are 9 cells in the contingency table the bonferroni test multiplies the pvalue by 9. If the pvalue is then greater than 1, it becomes 1
+
+
+chiq_post_hoc_table
+```
+
+## Table S2: chisq post hoc results from assocation between animal environment and functional category. 
+```{r}
+write.table(chiq_post_hoc_table,file = paste0(plots_folder,"/","chiq_post_hoc_functional_completeness_animal.tsv"),sep = "\t",quote = F,row.names = F)
+```
+
+
+```{r}
+
+effectsize.modelchi <- chisq_to_cramers_v(chisq = model.chi$statistic, n = 1200, nrow=3, ncol=3, adjust = F, alternative = "two.sided")
+
+effectsize.modelchi
+```
+
+We have a statistically significant assocation between Animal Source and Functional category with a Craver's V effect size of `r effectsize.modelchi$Cramers_v` 95% CI [`r effectsize.modelchi$CI_low`, `r effectsize.modelchi$CI_high`])
+
+The proportion of genomes having functionally complete F-like transfer operons in each animal source varied significantly (chi square test of independence , p-value < 2.2e-16), with poultry having the highest proportion (56\%, 226/400) followed by swine (36\%,144/400) and last bovine (22%,87/400) (see figure 1(a)). 
+
+The proportion of genomes missing F-like transfer operons (having less than 5 marker genes) in each animal source also varied significantly following the opposite trend. 
+
+Interestingly,the proportion of functionally incomplete F-like transfer operons are similar among the three animal sources.
+
+## Mobility classification by Coluzzi et al. 
+
+```{r}
+category_counts_coluzzi <- genome_summary_df %>% group_by(Generic_Host) %>% 
+  count(mob_classification_coluzzi) %>%
+  mutate(prop = n / sum(n)) 
+
+p <- ggplot(category_counts_coluzzi, aes(x = Generic_Host, y = n, fill = mob_classification_coluzzi)) +
+   geom_bar(position = 'stack',stat = "identity")  +
+  themeBW +
+  scale_fill_manual(
+    values = coluzzi_colours,  name = "Mobility Classification") +
+  theme( legend.position = "right", legend.key.size = unit(0.4, "cm")) + 
+  #geom_text(aes(x = Generic_Host, label = scales::percent(prop,accuracy = 1)), size = 6,position = position_stack(vjust = 0.5)) + 
+  ylab("Number of genomes")
+
+p
+```
+
+
+## Figure: relation between mobility classification schemes
+
+```{r}
+classification_colours = c(rev(functional_colours),coluzzi_colours)
+classification_labels <- names(classification_colours) 
+names(classification_colours) <- NULL
+
+ plot_df <- genome_summary_df %>% 
+  filter(Generic_Host == "Bovine") %>%  mutate(functional_category = factor(functional_category,levels = c("complete","incomplete", "missing")),                                                   mob_classification_coluzzi = factor(mob_classification_coluzzi,levels=c("conj","pdconj","mob","mobless","no.transfer.gene")))  
+
+p1 <-   ggparallel(data = plot_df,vars = list("functional_category","mob_classification_coluzzi"),text.angle = 0, order = 0, width = 0.6, alpha = 0.4,label = F,method = "parset")  + 
+    scale_fill_manual(values = classification_colours,
+                      aesthetics = c("fill"),labels = classification_labels)  + 
+  scale_colour_manual(values = rep("#80808030",8),labels = classification_labels)  + theme_manuscript + 
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+          panel.background = element_blank(),
+                   panel.border = element_blank(),
+                   strip.background = element_blank(),
+                   panel.grid = element_blank()) + 
+  ylab("Genome count") + coord_flip() + 
+  ggtitle("Bovine") + 
+  theme(
+    plot.title = element_text(
+      hjust = 0.5,          # centers the title
+      face = "bold",        # optional: bold title
+      size = 12,# optional: title size,
+    ),legend.position = "bottom",legend.box.background  = element_blank()) + 
+  guides(color = "none",fill = guide_legend(nrow = 3,title = NULL))
+
+p1
+```
+
+
+```{r}
+plot_df <- genome_summary_df %>% 
+  filter(Generic_Host == "Swine") %>%  mutate(functional_category = factor(functional_category,levels = c("complete","incomplete", "missing")),                                                   mob_classification_coluzzi = factor(mob_classification_coluzzi,levels=c("conj","pdconj","mob","mobless","no.transfer.gene")))  
+
+p2 <-   ggparallel(data = plot_df,vars = list("functional_category","mob_classification_coluzzi"),text.angle = 0, order = 0, width = 0.6, alpha = 0.4,label = F,method = "parset")  + 
+    scale_fill_manual(values = classification_colours,
+                      aesthetics = c("fill"),labels = classification_labels)  + 
+  scale_colour_manual(values = rep("#80808030",8),labels = classification_labels) + theme_manuscript + theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+          panel.background = element_blank(),
+                   panel.border = element_blank(),
+                   strip.background = element_blank(),
+                   panel.grid = element_blank()) + 
+  ylab("Genome count") + coord_flip() + 
+  ggtitle("Swine") + 
+  theme(
+    plot.title = element_text(
+      hjust = 0.5,          # centers the title
+      face = "bold",        # optional: bold title
+      size = 12,# optional: title size,
+    ),legend.position = "bottom",legend.box.background  = element_blank()) + 
+  guides(color = "none",fill = guide_legend(nrow = 3,title = NULL))
+
+p2
+```
+
+
+```{r}
+plot_df <- genome_summary_df %>% 
+  filter(Generic_Host == "Poultry") %>%  mutate(functional_category = factor(functional_category,levels = c("complete","incomplete", "missing")),                                                   mob_classification_coluzzi = factor(mob_classification_coluzzi,levels=c("conj","pdconj","mob","mobless","no.transfer.gene")))  
+
+p3 <-   ggparallel(data = plot_df,vars = list("functional_category","mob_classification_coluzzi"),text.angle = 0, order = 0, width = 0.6, alpha = 0.4,label = F,method = "parset")  + 
+    scale_fill_manual(values = classification_colours,
+                      aesthetics = c("fill"),labels = classification_labels)  + 
+  scale_colour_manual(values = rep("#80808030",8),labels = classification_labels)  + theme_manuscript +
+  theme(axis.text.y = element_blank(),
+        axis.ticks.y = element_blank(),
+          panel.background = element_blank(),
+                   panel.border = element_blank(),
+                   strip.background = element_blank(),
+                   panel.grid = element_blank()) + 
+  ylab("Genome count") + coord_flip() + 
+  ggtitle("Poultry") + 
+  theme(
+    plot.title = element_text(
+      hjust = 0.5,          # centers the title
+      face = "bold",        # optional: bold title
+      size = 12,# optional: title size,
+    ),legend.position = "bottom",legend.box.background  = element_blank()) + 
+  guides(color = "none",fill = guide_legend(nrow = 3,title = NULL))
+
+p3
+```
+
+
+```{r}
+(p1/p2/p3) + plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+
+
+ggsave(paste0(plots_folder,"/","functional_vs_coluzziclassification.svg"), units = "cm",height = 15, width = 12, dpi = 600)
+```
+deps <- renv::dependencies(".")
+

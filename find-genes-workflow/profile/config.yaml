@@ -1,0 +1,47 @@
+#note: this is a sample profile file. You will need to change the paths to match your system.
+latency-wait: 60
+show-failed-logs: True
+jobs: 30 
+use-conda: True
+use-envmodules: True 
+conda-cleanup-pkgs: cache 
+keep-going: True
+printshellcmds: True
+max-status-checks-per-second: 10
+executor: slurm
+default-resources:
+  runtime: 30
+  mem_mb_per_cpu: 2000
+  mem_mb: None
+  disk_mb: None
+  slurm_account: #your slurm account here 
+set-resources:
+  decompress_genome:
+    runtime: 5
+    mem_mb_per_cpu: 500
+    cpus_per_task: 1
+    slurm_extra: "'--tmp=500'"
+  contig_lengths:
+    cpus_per_task: 1
+    runtime: 2
+    mem_mb_per_cpu: 200
+  annotate_bakta:
+    cpus_per_task: 8
+    runtime: 60 
+    mem_mb_per_cpu: 2000
+    slurm_extra: "'--tmp=500'"
+  tblastn_tra_genes:
+      cpus_per_task: 4
+      runtime: 5
+      mem_mb_per_cpu: 500
+      slurm_extra: "'--tmp=500'"
+  genomad:
+      cpus_per_task: 8
+      runtime: 10
+      mem_mb_per_cpu: 5000
+      slurm_extra: "'--tmp=1000'"
+  plasmidfinder:
+    runtime: 5
+    mem_mb_per_cpu: 500
+    cpus_per_task: 1
+    slurm_extra: "'--tmp=500'"

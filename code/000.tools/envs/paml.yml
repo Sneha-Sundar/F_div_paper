@@ -1,0 +1,7 @@
+name: paml
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - bioconda::paml
+prefix: /cluster/home/ssundar/miniconda3/envs/paml

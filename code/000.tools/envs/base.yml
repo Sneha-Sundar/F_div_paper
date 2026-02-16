@@ -1,0 +1,15 @@
+name: base
+channels:
+  - conda-forge
+  - bioconda 
+dependencies:
+  - python
+  - conda=23.7.2
+  - setuptools
+  - pip
+  - wheel
+  - conda-content-trust
+  - python.app
+  - biopython
+  - pandas
+  - jupyter

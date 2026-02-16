@@ -1,0 +1,73 @@
+---
+title: "Counting IncF replicons"
+author: "Sneha Sundar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+Note: This file will not run since it requires a large file. 
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Replicons in each genome were found using the tool plasmidfinder. Plasmidfinder detects plasmids using a pre-defined database of replicon sequences as queries in a BLAST search. 
+
+
+```{r}
+library(tidyverse)
+library(here)
+```
+
+Load plasmidfinder results
+```{r}
+plasmidfinder_df <- read.table(here("data/processed/002.find_genes/pires1200/ecoli/plasmidfinder_res/all.tsv"), header = T, sep = "\t",quote = "",)
+```
+
+Load genome summary results
+
+```{r}
+genome_summary_df <- read.table(here("data/processed/002.find_genes/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/genome_tra_count_summary.tsv"),header = T,sep = '\t', quote = "")
+
+genome_summary_df <- genome_summary_df %>% mutate(functional_category = case_when(
+    n.distinct.func.genes < 5 ~ "missing",
+    n.distinct.func.genes >=5  & n.distinct.func.genes < 23 ~ "incomplete",
+    n.distinct.func.genes   >= 23 ~ "complete",
+  ))
+  
+
+```
+
+
+How many replicons per genome do we find? 
+
+```{r}
+plasmidfinder_summary <- plasmidfinder_df %>% group_by(genome) %>% summarise(n.replicons = n(), n.incF.replicons=sum(str_detect(Plasmid, "IncF")))
+
+unique(plasmidfinder_df$Plasmid)[startsWith(unique(plasmidfinder_df$Plasmid),"IncF")]
+```
+
+
+
+```{r}
+genome_summary_df <- genome_summary_df %>% left_join(plasmidfinder_summary, join_by(target_genome == genome))
+```
+
+```{r}
+genome_summary_df <- genome_summary_df %>% mutate(n.replicons = replace_na(n.replicons, 0), 
+                             n.incF.replicons = replace_na(n.incF.replicons, 0), has.incF_replicon = n.incF.replicons > 0)
+```
+
+## Write replicon count info to overall summary table
+
+```{r}
+out_folder <- here("data/processed/002.find_genes/pires1200_onlyblastcontigs_rmnonF-like_trantotraf")
+
+
+write.table(genome_summary_df, paste0(out_folder, "/","genome_tra_count_summary.tsv"),sep = '\t',quote = F,row.names = F)
+
+```
+
+
+
+

@@ -1,0 +1,167 @@
+---
+title: "Sample distribution"
+author: "Sneha Sundar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(digits = 3)
+```
+
+
+
+```{r}
+library(here)
+library(tidyverse)
+
+source(here("code/000.tools/helpers.R"))
+
+source(here("code/000.tools/plot.R"))
+
+```
+Input data
+
+```{r}
+genome_summary_df <- read.table(here("data/processed/003.genomic_context/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/genome_tra_count_summary.tsv"),header = T,sep = '\t', quote = "")
+
+```
+
+```{r}
+plots_folder <- here("data/processed/manuscript_plots/001.sample_distribution")
+
+```
+
+# On the distribution of data
+
+## Food or livestock
+
+Overall proportions of food vs. livestock samples
+```{r}
+table(genome_summary_df$Source_Niche)
+
+table(genome_summary_df$Source_Niche)/nrow(genome_summary_df)
+```
+
+By animal source
+```{r}
+table(genome_summary_df$Source_Niche,genome_summary_df$Generic_Host)
+
+prop.table(table(genome_summary_df$Source_Niche,genome_summary_df$Generic_Host),margin = 2)
+```
+
+```{r}
+
+p1 <- genome_summary_df %>% ggplot()+ geom_bar(aes(x=Generic_Host,fill=Source_Niche)) +scale_fill_manual(values = source_niche_colours)  + theme_manuscript + xlab("Animal Environment") + ylab("Genome count") + labs(fill = "Sample\nSource") + coord_flip()
+p1
+```
+
+
+
+## Phylogroup distribution across Animal Environments. 
+
+
+Overall proportions
+
+```{r}
+table(genome_summary_df$PhG)
+
+table(genome_summary_df$PhG)/nrow(genome_summary_df)
+
+#phG A and B1
+round(sum((table(genome_summary_df$PhG)/nrow(genome_summary_df))[1:2]),3)
+```
+
+By animal source
+```{r}
+table(genome_summary_df$PhG,genome_summary_df$Generic_Host)
+
+prop.table(table(genome_summary_df$PhG,genome_summary_df$Generic_Host),margin = 2)
+
+#PhG A and B1
+colSums(table(genome_summary_df$PhG,genome_summary_df$Generic_Host)[1:2,])
+
+colSums(prop.table(table(genome_summary_df$PhG,genome_summary_df$Generic_Host),margin = 2)[1:2,])
+```
+
+
+```{r}
+p2 <- genome_summary_df %>% ggplot()+ geom_bar(aes(x=Generic_Host,fill=PhG))  + scale_fill_manual(values = phg_colours) + theme_manuscript + xlab("Animal Environment") + ylab("Genome count") + coord_flip() +  guides(
+    fill   = guide_legend(nrow = 2),
+    shape  = guide_legend(nrow = 2),
+    linetype = guide_legend(nrow = 2)
+  )
+
+
+```
+
+
+
+
+
+## Acquired resistance
+
+Overall proportions
+```{r}
+table(genome_summary_df$Acq_Resist)
+
+table(genome_summary_df$Acq_Resist)/nrow(genome_summary_df)
+
+#phG A and B1
+round(sum((table(genome_summary_df$PhG)/nrow(genome_summary_df))[1:2]),3)
+```
+
+By animal source
+```{r}
+table(genome_summary_df$Acq_Resist,genome_summary_df$Generic_Host)
+
+prop.table(table(genome_summary_df$Acq_Resist,genome_summary_df$Generic_Host),margin = 2)
+
+```
+
+
+
+```{r}
+
+p3 <- genome_summary_df %>% ggplot()+ geom_bar(aes(x=Generic_Host,fill=Acq_Resist)) + scale_fill_manual(values = resistance_presence)  + theme_manuscript + xlab("Animal Environment") +  ylab("Genome count") + labs(fill = "Resistance\nPresence") + coord_flip()
+
+p3
+```
+
+
+# MANUSCRIPT PLOT
+
+## Sample distributions by animal source
+
+
+```{r}
+patch1 <- (p2+p1+p3 + plot_layout(axes = "collect",guides = "collect"))  &
+  theme(legend.position='bottom')
+
+patch1
+
+ggsave(paste0(plots_folder,"/","sample_distributions_by_animal_host.pdf"),patch1, units = "cm",height = 8, width = 20, dpi = 600)
+
+
+```
+
+
+Add sampling year to this
+
+
+```{r}
+p <- genome_summary_df %>% ggplot()+ geom_bar(aes(x= Year,fill=PhG))  + 
+   scale_fill_manual(values = phg_colours) + 
+  theme_manuscript + 
+  xlab("Year of isolation") + 
+  ylab("Genome count") + 
+  facet_wrap(vars(Generic_Host), nrow = 3) + 
+  scale_x_continuous(n.breaks = 10)
+
+ggsave(paste0(plots_folder,"/","PhG_dist_by_year_and_animal.pdf"),p, units = "cm",height = 12, width = 14, dpi = 600)
+
+
+
+
+```

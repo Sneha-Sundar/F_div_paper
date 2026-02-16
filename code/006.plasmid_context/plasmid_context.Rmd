@@ -1,0 +1,639 @@
+---
+title: "Plasmid context"
+author: "Sneha Sundar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Script and statistics for Figure 5, S5, S6, S7. 
+
+## Libraries
+
+
+```{r}
+library(here)
+library(tidyverse)
+library(CooccurrenceAffinity) 
+library(dunn.test)
+library(epitools) #calculation of binomial confidence intervals
+
+source(here("code/000.tools/helpers.R"))
+source(here("code/000.tools/plot.R"))
+
+plot_folder <-here("data/processed/manuscript_plots/006.plasmid.context")
+
+```
+
+```{r}
+generate_cooccurrence_affnity_table <- function(dat.pres.abs,dat.label,row.or.column = "column"){
+
+  out <- affinity(dat.pres.abs,row.or.col = row.or.column)
+  
+   out$all <- out$all %>% mutate(dataset_label = dat.label)
+  
+  return(out)
+}
+
+```
+
+
+
+
+Input summary table for all genomes. 
+```{r}
+genome_summary_df <- read.table(here("data/processed/002.find_genes/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/genome_tra_count_summary.tsv"),header = T,sep = '\t', quote = "")
+
+```
+
+
+
+
+## Read in genomad results
+```{r}
+genomad_folder <- here("data/processed/006.plasmid.context/genomad")
+
+conj_genes_contig_df <- read.table(paste0(genomad_folder, "/","conj_genes-contig.tsv"),header = T, sep = '\t',quote = "")
+            
+conj_types_count_summary_wide <- read.table(paste0(genomad_folder, "/","conj_ngenes_by_type-genome_summary.tsv"),header = T, sep = '\t',quote = "")
+
+conj_types_genome_summary_long <- read.table(paste0(genomad_folder, "/","conj_ngenes_by_type-genome_summary_long.tsv"),header = T, sep = '\t',quote = "")
+
+
+conj_types_genome_summary <- read.table(paste0(genomad_folder, "/","count-conj_types-genome_summary.tsv"),header = T, sep = '\t',quote = "")
+```
+
+
+
+
+
+## Create presence absence tables of relaxases (MOBs) and MPF_types
+
+
+```{r}
+genome_summary_df <- genome_summary_df %>% mutate(n_MPF_types = replace_na(n_MPF_types,0),n_relaxase_types = replace_na(n_relaxase_types,0), n_virb4_types = replace_na(n_virb4_types,0), n_t4cp_types = replace_na(n_t4cp_types,0))
+
+genome_summary_df <- genome_summary_df %>%  mutate(across(ends_with("n_genes") | ends_with("n_distinct_genes"), ~replace_na(., 0)))
+```
+
+## Create a presence absence matrix of relaxases for all the genomes
+```{r}
+#min number of genes to call a relaxase present, 
+threshold.n.distinct.genes = 1
+
+MOB_type_presence <-genome_summary_df %>% ungroup() %>%  select(target_genome ,starts_with("MOB") & ends_with("n_distinct_genes")) %>% column_to_rownames("target_genome") %>% as.matrix()
+
+colnames(MOB_type_presence) <- sub("\\.n_distinct_genes$", "", colnames(MOB_type_presence))
+
+MOB_type_presence[is.na(MOB_type_presence)] <- 0
+
+MOB_type_presence <- (MOB_type_presence>=threshold.n.distinct.genes)*1
+
+
+genome_summary_df[,"n.nonF_relaxase_types"] <- MOB_type_presence[,c(-2)] %>% rowSums()
+
+genome_summary_df[,"n_relaxase_types"] <- rowSums(MOB_type_presence)
+
+
+```
+
+## Create a presence absence matrix of MPF_types for all the genomes
+```{r}
+
+# Min number of MPF genes to call an MPF type as "present"
+threshold.n.distinct.genes = 3
+
+MPF_type_presence <-genome_summary_df %>% ungroup() %>%  select(target_genome ,starts_with("MPF") & ends_with("n_distinct_genes")) %>% column_to_rownames("target_genome") %>% as.matrix()
+
+colnames(MPF_type_presence) <- sub("\\.n_distinct_genes$", "", colnames(MPF_type_presence))
+
+MPF_type_presence[is.na(MPF_type_presence)] <- 0
+
+MPF_type_presence<- (MPF_type_presence>=threshold.n.distinct.genes)*1 
+
+genome_summary_df[,"n.nonF_MPF_types"] <- rowSums(MPF_type_presence[,2:4])
+
+genome_summary_df[,"n_MPF_types"] <- rowSums(MPF_type_presence[,1:4])
+
+```
+
+
+## Distributions of numbers of relaxases and numbers of MPF types 
+
+
+E.coli. 674 genomes (56.17%) have more than one MPF type and 617 genomes (51.42%) have more than one relaxase types. We find a small set of genomes have 0 MPF types and 0 relaxase types ( 54 genomes,0.045\%) indicating a complete lack of conjugation machinery in these genomes.  
+Having more relaxases is associated to having a larger number of MPF types. 
+
+
+```{r}
+(genome_summary_df %>% filter(n_MPF_types > 1) %>% nrow())
+(genome_summary_df %>% filter(n_MPF_types > 1) %>% nrow())/1200
+```
+
+```{r}
+(genome_summary_df %>% filter(n_relaxase_types > 1) %>% nrow())
+(genome_summary_df %>% filter(n_relaxase_types > 1) %>% nrow())/1200
+```
+
+## Figure: Number of MPF types per isolate in all genomes
+```{r}
+
+genome_summary_df %>% ggplot() + 
+  geom_bar(aes(x = n_MPF_types)) +  
+  xlab("Number of MPF types per isolate") + 
+  ylab("Count of genomes") + 
+  theme_manuscript
+ggsave(paste0(plot_folder,"/hist_n_MPF_types_all.pdf"),units = "cm",width = 10, height = 10)
+
+```
+
+
+
+
+## How does the distribution of non-F MPF types and relaxase types differ by  animal host? 
+
+
+
+```{r}
+mean_nonF_MPF_types_per_animal <- genome_summary_df %>% group_by(Generic_Host) %>% 
+  summarise(n = n(),mean = mean(n.nonF_MPF_types), sd = sd(n.nonF_MPF_types)
+            ,.groups = "drop") %>% 
+  mutate(se = sd / sqrt(n),
+         t_crit = qt(0.975, df = n - 1),
+         lower = mean - t_crit * se,
+         upper = mean + t_crit * se) %>% mutate(type = "MPF")
+
+
+```
+
+```{r}
+mean_nonF_relaxase_types_per_animal <- genome_summary_df %>% group_by(Generic_Host) %>% 
+  summarise(n = n(),mean = mean(n.nonF_relaxase_types), sd = sd(n.nonF_relaxase_types)
+            ,.groups = "drop") %>% 
+  mutate(se = sd / sqrt(n),
+         t_crit = qt(0.975, df = n - 1),
+         lower = mean - t_crit * se,
+         upper = mean + t_crit * se) %>% mutate(type = "relaxase")
+
+mean_nonF_conj_types_per_animal <- rbind(mean_nonF_MPF_types_per_animal, mean_nonF_relaxase_types_per_animal)
+
+```
+
+## Figure: mean non-F MPF and relaxase types by animal environment. 
+```{r}
+
+pd <- position_dodge(0.3)
+
+p1 <- mean_nonF_conj_types_per_animal %>% group_by(Generic_Host) %>% 
+  ggplot(aes(x= type, y = mean, group = Generic_Host, color = Generic_Host)) +
+  geom_errorbar(aes(x = type, ymin = lower, ymax = upper, color = Generic_Host, group = Generic_Host),position = pd,width = 0.2) + 
+  geom_point(position = pd, size = 3) + ylab("Mean non-F types per isolate") +xlab("type") + 
+  theme_manuscript + theme_legend_inside_left_top_manuscript + 
+   scale_color_manual(values = animal_colours, name = "Animal Host") + 
+  theme(panel.grid.major.x = element_blank()) + 
+  scale_y_continuous(limits = c(0,1.2))
+
+p1
+
+ggsave(filename = paste0(plot_folder,"/mean_nonF_types_per_isolate_by_animal.pdf"), plot = p1, width = 4, height = 4 )
+
+```
+
+
+
+## Stat: Poultry harbours more non-F MPF types than swine or bovine
+
+```{r}
+dunn.test(genome_summary_df$n.nonF_MPF_types, genome_summary_df$Generic_Host, method = "bonferroni")
+```
+## Stat: Poultry has more relaxase types than bovine isolates. 
+
+```{r}
+dunn.test(genome_summary_df$n.nonF_relaxase_types, genome_summary_df$Generic_Host, method = "bonferroni")
+```
+
+
+## Comparing non-F MPF types across both animal and functional category
+
+
+
+```{r}
+mean_nonF_MPF_types_per_function_animal <- genome_summary_df %>% group_by(Generic_Host,functional_category) %>% 
+  summarise(n = n(),mean = mean(n.nonF_MPF_types), sd = sd(n.nonF_MPF_types)
+            ,.groups = "drop") %>% 
+  mutate(se = sd / sqrt(n),
+         t_crit = qt(0.975, df = n - 1),
+         lower = mean - t_crit * se,
+         upper = mean + t_crit * se) %>% mutate(type = "MPF")
+
+mean_nonF_relaxase_types_per_function_animal <- genome_summary_df %>% 
+  group_by(Generic_Host,functional_category) %>% 
+  summarise(n = n(),mean = mean(n.nonF_relaxase_types), sd = sd(n.nonF_relaxase_types)
+            ,.groups = "drop") %>% 
+  mutate(se = sd / sqrt(n),
+         t_crit = qt(0.975, df = n - 1),
+         lower = mean - t_crit * se,
+         upper = mean + t_crit * se) %>% mutate(type = "relaxase")
+
+mean_nonF_conj_types_per_function_animal <- rbind(mean_nonF_MPF_types_per_function_animal, mean_nonF_relaxase_types_per_function_animal)
+
+mean_nonF_conj_types_per_function_animal
+
+```
+## Figure: Differences in n. non-F MPF types across animal environments and functional completeness categories
+
+
+```{r}
+pd <- position_dodge(0.6)
+p1 <- mean_nonF_conj_types_per_function_animal %>%  filter(type == "MPF") %>% 
+  ggplot(aes(x= Generic_Host, y = mean, group = functional_category, color = functional_category)) +
+  geom_errorbar(aes(x = Generic_Host, ymin = lower, ymax = upper, color = functional_category, group = functional_category),position = pd,width = 0.2) + 
+  geom_point(position = pd, size = 2) + ylab("Mean non-F MPF types per isolate") +
+  xlab("Animal Environment") + #facet_wrap(vars(type))+
+  ylim(c(0,1))+
+  theme_manuscript + 
+   scale_color_manual(values = functional_colours, name = "F-like transfer operon\nfunctional completeness") + 
+  theme_legend_inside_right_bottom_manuscript + 
+  theme(panel.grid.major.x = element_blank())
+
+ggsave(filename = paste0(plot_folder,"/mean_nonF_types_per_isolate_by_animal_function_MPF.pdf"), plot = p1, width = 10, height = 10,units = "cm")
+```
+
+
+
+## Stats for figure 5A
+
+```{r}
+
+
+dunn.test(genome_summary_df %>% filter(Generic_Host == "Poultry") %>% pull(n.nonF_MPF_types), genome_summary_df %>% filter(Generic_Host == "Poultry") %>% pull(functional_category), method = "bonferroni")
+
+
+
+dunn.test(genome_summary_df %>% filter(Generic_Host == "Swine") %>% pull(n.nonF_MPF_types), genome_summary_df %>% filter(Generic_Host == "Swine") %>% pull(functional_category), method = "bonferroni")
+
+
+
+dunn.test(genome_summary_df %>% filter(Generic_Host == "Bovine") %>% pull(n.nonF_MPF_types), genome_summary_df %>% filter(Generic_Host == "Bovine") %>% pull(functional_category), method = "bonferroni",rmc = T)
+```
+
+
+
+## Do we observe different prevalences of other MPF_types and relaxases across animal hosts? 
+
+
+```{r}
+MPF_type_presence_df <- MPF_type_presence %>% as.data.frame() %>% rownames_to_column("target_genome") %>% left_join(genome_summary_df %>% select(target_genome, functional_category, Generic_Host))
+
+MOB_type_presence_df <- MOB_type_presence %>% as.data.frame() %>% rownames_to_column("target_genome") %>% left_join(genome_summary_df %>% select(target_genome, functional_category, Generic_Host))
+
+```
+
+```{r}
+overall_MPF_prev <- MPF_type_presence_df %>% summarise(n = n(),MPF_F.prev = sum(MPF_F)/n(),
+                                   MPF_I.prev = sum(MPF_I)/n(),
+                                   MPF_G.prev = sum(MPF_G)/n(),
+                                   MPF_T.prev = sum(MPF_T)/n()) %>% 
+     pivot_longer(cols = ends_with("prev"),names_to = c("MPF_type",".value"),names_sep = "\\.") %>% 
+  mutate(binom.approx(prev*n,n))
+```
+
+
+```{r}
+overall_MOB_prev <- MOB_type_presence_df %>% summarise(n = n(),MOBF.prev = sum(MOBF)/n(),
+                                   MOBH.prev = sum(MOBH)/n(),
+                                   MOBP1.prev = sum(MOBP1)/n(),
+                                   MOBV.prev = sum(MOBV)/n(),
+                                   MOBQ.prev = sum(MOBQ)/n(),
+                                   MOBC.prev = sum(MOBC)/n()) %>% 
+     pivot_longer(cols = ends_with("prev"),names_to = c("MOB_type",".value"),names_sep = "\\.") %>% 
+  mutate(binom.approx(prev*n,n))
+
+overall_MOB_prev
+```
+
+
+
+```{r}
+animal_host_MPF_prev <- MPF_type_presence_df %>% group_by(Generic_Host) %>%  
+  summarise(n = n(),
+            MPF_F.prev = sum(MPF_F)/n(),
+            MPF_I.prev = sum(MPF_I)/n(),
+           MPF_G.prev = sum(MPF_G)/n(),
+           MPF_T.prev = sum(MPF_T)/n()) %>% 
+   pivot_longer(cols = ends_with("prev"),names_to = c("MPF_type",".value"),names_sep = "\\.") %>% 
+  mutate(binom.approx(prev*n,n))
+
+
+```
+
+```{r}
+animal_host_MOB_prev <- MOB_type_presence_df %>% group_by(Generic_Host) %>% 
+  summarise(n = n(),MOBF.prev = sum(MOBF)/n(),
+                                   MOBH.prev = sum(MOBH)/n(),
+                                   MOBP1.prev = sum(MOBP1)/n(),
+                                   MOBV.prev = sum(MOBV)/n(),
+                                   MOBQ.prev = sum(MOBQ)/n(),
+                                   MOBC.prev = sum(MOBC)/n()) %>% 
+     pivot_longer(cols = ends_with("prev"),names_to = c("MOB_type",".value"),names_sep = "\\.") %>% 
+  mutate(binom.approx(prev*n,n))
+
+```
+
+
+```{r}
+function_MPF_prev <- MPF_type_presence_df %>% group_by(functional_category) %>%  summarise(n = n(),MPF_F.prev = sum(MPF_F)/n(),
+                                   MPF_I.prev = sum(MPF_I)/n(),
+                                   MPF_G.prev = sum(MPF_G)/n(),
+                                   MPF_T.prev = sum(MPF_T)/n()) %>% 
+   pivot_longer(cols = ends_with("prev"),names_to = c("MPF_type",".value"),names_sep = "\\.") %>% 
+  mutate(binom.approx(prev*n,n))
+
+function_MOB_prev <- MOB_type_presence_df %>% group_by(functional_category) %>% 
+  summarise(n = n(),MOBF.prev = sum(MOBF)/n(),
+                                   MOBH.prev = sum(MOBH)/n(),
+                                   MOBP1.prev = sum(MOBP1)/n(),
+                                   MOBV.prev = sum(MOBV)/n(),
+                                   MOBQ.prev = sum(MOBQ)/n(),
+                                   MOBC.prev = sum(MOBC)/n()) %>% 
+     pivot_longer(cols = ends_with("prev"),names_to = c("MOB_type",".value"),names_sep = "\\.") %>% 
+  mutate(binom.approx(prev*n,n))
+
+```
+
+## Figure: prevalence of MPF types in each animal host. 
+
+```{r}
+pd <- position_dodge(width = 0.6)  # consistent dodge for bars + error bars
+
+
+animal_host_MPF_prev$MPF_type <- factor(animal_host_MPF_prev$MPF_type, levels = animal_host_MPF_prev$MPF_type %>% unique(), labels = c("MPF F", "MPF I", "MPF G", "MPF T"))
+
+p2 <- animal_host_MPF_prev %>%
+  group_by(Generic_Host) %>%
+  ggplot(aes(x = MPF_type, y = prev, fill = Generic_Host)) +
+  geom_col(position = pd, width = 0.5) +  # use geom_col instead of geom_bar(stat="identity")
+  geom_errorbar(aes(ymin = lower, ymax = upper),
+                position = pd, width = 0.2, linewidth = 0.6) +  # error bars
+  scale_fill_manual(values = animal_colours, name = "Animal\nEnvironment") + theme_manuscript + theme_legend_inside_right_top_manuscript + 
+  ylim(c(-0.1,1))  + 
+  ylab("Prevalence") +
+  xlab("MPF type")  + 
+  theme(panel.grid.major.x = element_blank())
+
+ggsave(paste0(plot_folder,"/prevalence_MPF_type_by_animal.pdf"),p2,units = "cm",height = 10, width = 10)
+
+
+```
+
+Stat: Do we see differential prevalence of MPF I? Yes we do , with poultry having a significantly larger prevalence. 
+```{r}
+
+freq_table.3 <- table(MPF_type_presence_df$Generic_Host,MPF_type_presence_df$MPF_I)
+
+freq_table.3
+
+prop.test(freq_table.3[,"1"], n = c(400,400,400))
+
+pairwise.prop.test(freq_table.3[,2],
+                   n = c(400,400,400)
+
+)
+
+```
+
+Stat: Do we see differential prevalence of MPF G? Yes we do , with swine having a significantly lower prevalence. 
+```{r}
+
+freq_table.3 <- table(MPF_type_presence_df$Generic_Host,MPF_type_presence_df$MPF_G)
+
+freq_table.3
+
+prop.test(freq_table.3[,"1"], n = c(400,400,400))
+
+pairwise.prop.test(freq_table.3[,2],
+                   n = c(400,400,400)
+
+)
+```
+
+
+Stat: Do we see differential prevalence of MPF T? Yes we do , with swine having a significantly lower prevalence. 
+```{r}
+
+freq_table.3 <- table(MPF_type_presence_df$Generic_Host,MPF_type_presence_df$MPF_T)
+
+freq_table.3
+
+prop.test(freq_table.3[,"1"], n = c(400,400,400))
+
+pairwise.prop.test(freq_table.3[,2],
+                   n = c(400,400,400)
+
+)
+```
+
+
+# Cooccurrence patterns 
+
+For a pair of conjugation types A
+and B, affinity measures the odds of finding type B in an isolate given that the isolate
+already has type A. Affinity is computed as the maximum likelihood estimate of the
+log odds ratio parameter of the extended hypergeometric distribution. This distribution
+depends on the total number of genomes, the number of genomes containing A, the
+number of genomes containing B, and the observed number of genomes containing
+both A and B. An affinity of 0 indicates that A and B co-occur as expected based on
+independent and random assortment, which follows the hypergeometric distribution
+(the null distribution). A positive affinity (> 0) indicates that types A and B co-occur
+more frequently than expected under the null distribution, whereas a negative value (<
+0) indicates that they occur in separate genomes more frequently than expected.
+
+
+MOB_V is present only in one genome, so removing it. 
+```{r}
+
+colnames(MPF_type_presence) <- c("MPF F", "MPF I", "MPF T", "MPF G")
+MOB_MPF_type_presence <- cbind(MPF_type_presence,MOB_type_presence[,-6])
+
+
+
+```
+
+
+```{r}
+
+MOB_MPF_type_presence
+
+out.all <- generate_cooccurrence_affnity_table(MOB_MPF_type_presence,row.or.column = "column",dat.label = "all.MPF.MOB")
+
+out.all$all <- out.all$all %>% mutate(significance = cut(
+  as.numeric(p_value),
+  breaks = c(-Inf, 0.001, 0.01, 0.05, Inf),
+  labels = c("***", "**", "*", ""),
+  right = TRUE
+)) 
+
+out.all$all
+```
+
+
+# Figure: all cooccurrence patterns: MPF-MPF, MOB-MOB and MPF-MOB
+
+```{r}
+
+out.all$occur_mat
+
+p <- plotgg(out.all,variable = "alpha_mle",legendlimit = "balanced",text.size = 4)
+fig5_panelC <- p + geom_text(aes(label = significance),nudge_y = -0.3,size = 2) + 
+theme_manuscript + theme_legend_inside_right_top_manuscript + 
+  xlab("Conjugation system type") + 
+  ylab("Conjugation system type") + 
+  labs(fill = "Affinity") + 
+  theme(panel.grid = element_blank())
+
+fig5_panelC
+
+ggsave(paste0(plot_folder,"/affinity_matrix_all.pdf"),fig5_panelC,units = "cm",width = 14,height = 14)
+
+```
+
+
+
+# Figure: Cooccurrence of MPF types 
+
+```{r}
+out.MPF <- generate_cooccurrence_affnity_table(MPF_type_presence,row.or.column = "column",dat.label = "all.MPF")
+
+
+out.MPF$all <- out.MPF$all %>% mutate(significance = cut(
+  as.numeric(p_value),
+  breaks = c(-Inf, 0.001, 0.01, 0.05, Inf),
+  labels = c("***", "**", "*", ""),
+  right = TRUE
+)) 
+
+p <- plotgg(out.MPF,variable = "alpha_mle",legendlimit = "balanced",text.size = 4)
+fig5_panelC <- p + geom_text(aes(label = significance),nudge_y = -0.3,size = 4) + 
+theme_manuscript + theme_legend_inside_right_top_manuscript + 
+  xlab("Conjugation system type") + 
+  ylab("Conjugation system type") + 
+  labs(fill = "Affinity") + 
+  theme(panel.grid = element_blank())
+
+fig5_panelC
+
+ggsave(paste0(plot_folder,"/affinity_matrix_MPF.pdf"),fig5_panelC,units = "cm",width = 10,height = 10)
+```
+
+
+
+
+## Bovine specific cooccurance 
+
+
+
+```{r}
+bovine_genomes <- genome_summary_df %>% filter(Generic_Host == "Bovine") %>% pull(target_genome)
+
+out.bovine <- generate_cooccurrence_affnity_table(MOB_MPF_type_presence[bovine_genomes,],row.or.column = "column",dat.label = "Bovine.MPF.MOB")
+
+out.bovine
+
+out.bovine_MPF <- generate_cooccurrence_affnity_table(MPF_type_presence[bovine_genomes,],row.or.column = "column",dat.label = "Bovine")
+
+
+out.bovine_MOB <- generate_cooccurrence_affnity_table(MOB_type_presence[bovine_genomes,-6],row.or.column = "column",dat.label = "Bovine")
+```
+
+
+## Swine specific cooccurance 
+
+```{r}
+Swine_genomes <- genome_summary_df %>% filter(Generic_Host == "Swine") %>% pull(target_genome)
+
+out.Swine <- generate_cooccurrence_affnity_table(MOB_MPF_type_presence[Swine_genomes,],row.or.column = "column",dat.label = "Swine.MPF.MOB")
+
+out.Swine_MPF <- generate_cooccurrence_affnity_table(MPF_type_presence[Swine_genomes,],row.or.column = "column",dat.label = "Swine")
+
+out.Swine_MOB <- generate_cooccurrence_affnity_table(MOB_type_presence[Swine_genomes,-6],row.or.column = "column",dat.label = "Swine")
+```
+
+
+
+## Poultry-specific Cooccurance 
+
+
+```{r}
+Poultry_genomes <- genome_summary_df %>% filter(Generic_Host == "Poultry") %>% pull(target_genome)
+
+out.Poultry <- generate_cooccurrence_affnity_table(MOB_MPF_type_presence[Poultry_genomes,],row.or.column = "column",dat.label = "Poultry.MPF.MOB")
+
+out.Poultry_MPF <- generate_cooccurrence_affnity_table(MPF_type_presence[Poultry_genomes,],row.or.column = "column",dat.label = "Poultry")
+
+
+
+out.Poultry_MOB <- generate_cooccurrence_affnity_table(MOB_type_presence[Poultry_genomes,-6],row.or.column = "column",dat.label = "Poultry")
+```
+
+
+
+
+```{r}
+animal_specific_coaff_df <- rbind(out.bovine$all, out.Poultry$all, out.Swine$all)
+
+
+animal_specific_coaff_df <- animal_specific_coaff_df %>% 
+  mutate(dataset_label = str_remove(dataset_label,pattern = "\\.MPF\\.MOB")) %>% 
+mutate(ci_blaker_copy = str_remove_all(ci_blaker, "\\[|\\]")) %>%
+  # Separate into two columns using ", " as the delimiter
+  separate(ci_blaker_copy, into = c("ci_blaker_l", "ci_blaker_u"), sep = ", ") %>% 
+  mutate(ci_blaker_l = as.numeric(ci_blaker_l),ci_blaker_u = as.numeric(ci_blaker_u)) %>% 
+  mutate(pair = paste0(entity_1,"-",entity_2)) %>% 
+  mutate(type = paste0(gsub("_.*|.$|.\\d$","", entity_1),"-",gsub("_.*|.$|.\\d$","", entity_2)))
+
+animal_specific_coaff_df
+```
+
+## Figure: Animal-specific cooccurrences for MPF types
+
+```{r}
+pd <- position_dodge(width = 0.5)
+
+animal_specific_coaff_df_MPF <- rbind(out.bovine_MPF$all, out.Poultry_MPF$all, out.Swine_MPF$all)
+
+
+
+
+animal_specific_coaff_df_MPF <- animal_specific_coaff_df_MPF %>%
+  mutate(ci_blaker_copy = str_remove_all(ci_blaker, "\\[|\\]")) %>%
+  # Separate into two columns using ", " as the delimiter
+  separate(ci_blaker_copy, into = c("ci_blaker_l", "ci_blaker_u"), sep = ", ") %>% 
+  mutate(ci_blaker_l = as.numeric(ci_blaker_l),ci_blaker_u = as.numeric(ci_blaker_u)) %>% 
+  mutate(pair = paste0(entity_1,"-",entity_2)) %>% 
+  mutate(pair = gsub("MPF_", "", pair)) %>% 
+  mutate(pair = factor(pair, levels = unique(pair))) %>% 
+  mutate(dataset_label <- factor(dataset_label))
+
+
+
+
+p1 <- animal_specific_coaff_df_MPF %>% 
+  ggplot(aes(y = pair, x = alpha_mle, colour = dataset_label, group = dataset_label)) + geom_point(position = pd,size = 2) + 
+  geom_errorbarh(aes(xmin = ci_blaker_l, xmax = ci_blaker_u), position = pd, linewidth = 1, height = 0.4) + 
+  geom_vline(aes(xintercept = 0), color = "grey", linetype = "dashed", linewidth = 1) +  
+  scale_x_continuous(limits = c(-8,8),breaks = seq(-8,8 , by = 2)) + 
+  scale_colour_discrete(type = animal_colours, name = "Animal\nEnvironment") + 
+  labs(y = "MPF pair", x = "Affinity")  + theme_manuscript + theme(panel.grid.major.y = element_blank(),panel.grid.minor.x = element_blank()) + theme_legend_inside_left_bottom_manuscript
+
+ggsave(filename = paste0(plot_folder,"/affinity_MPF_per_animal.pdf"),plot = p1,units = "cm",height = 10, width = 10)
+```
+
+```{r}
+sessionInfo()
+```
+
+
