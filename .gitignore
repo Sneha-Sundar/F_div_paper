@@ -1,0 +1,19 @@
+### project specific files 
+
+data/raw/**
+scratch/**
+commit.sh
+
+*checkpoint.ipynb
+*.pyc
+.snakemake/
+.Rproj.user
+*.Rproj
+data/processed/002.find_genes/pires1200/**
+logs/
+rst
+rst1
+rub
+.RData
+.Rapp.history
+
