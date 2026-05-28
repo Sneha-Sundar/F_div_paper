@@ -7,7 +7,7 @@ samples: config/BioSample_ecoli.txt
 genomes_folder: ../data/raw/pires_1200/Ecoli
 
 #folder where the results will be stored
-out_folder: ../data/processed/results
+out_folder: ../data/processed/002.find_genes/pires1200/ecoli
 
 #where conda environments are stored
 conda_env: miniconda3/envs  
@@ -30,6 +30,9 @@ genomad:
 
 plasmidfinder:
   plasmidfinder_db: ../databases/plasmidfinder_db
+
+
+
   
   
   

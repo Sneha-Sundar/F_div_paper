@@ -3,6 +3,10 @@ def get_input_samples():
         samples = [line.rstrip() for line in fin]
     return samples
 
+def get_genome_paths():
+    samples = get_input_samples()
+    return expand(config['genomes_folder'] + '/{genome}.fna', genome = samples)
+
 def get_blast_param_combo():
     return "eval{}_codon.{}".format(config['tblastn']['eval'],config['tblastn']['codon_table'])
 
@@ -27,3 +31,6 @@ def get_contiglens_output():
 def get_plasmidfinder_output():
     samples = get_input_samples()
     return expand(config['out_folder'] + '/plasmidfinder_res' + '/{genome}/{genome}.tsv',genome = samples)
+
+def ani_output():
+    return config['out_folder'] + '/ani_results' + '/ani_results.tsv'
