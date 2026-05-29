@@ -15,4 +15,4 @@ onsuccess:
 ##### Target rules #####
 rule all:
     input:
-        get_plasmidfinder_output()
+        ani_output()

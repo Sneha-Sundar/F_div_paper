@@ -5,7 +5,7 @@ def get_input_samples():
 
 def get_genome_paths():
     samples = get_input_samples()
-    return expand(config['genomes_folder'] + '/{genome}.fna', genome = samples)
+    return [expand(config['genomes_folder'] + '/{genome}.fna', genome = samples)]
 
 def get_blast_param_combo():
     return "eval{}_codon.{}".format(config['tblastn']['eval'],config['tblastn']['codon_table'])

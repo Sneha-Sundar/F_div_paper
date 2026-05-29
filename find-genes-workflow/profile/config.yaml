@@ -1,7 +1,8 @@
 #note: this is a sample profile file. You will need to change the paths to match your system.
 latency-wait: 60
+max-jobs-per-second: 10
 show-failed-logs: True
-jobs: 30 
+jobs: 50 
 use-conda: True
 use-envmodules: True 
 conda-cleanup-pkgs: cache 
@@ -14,7 +15,7 @@ default-resources:
   mem_mb_per_cpu: 2000
   mem_mb: None
   disk_mb: None
-  slurm_account: #your slurm account here 
+  slurm_account: es_bonho #your slurm account here
 set-resources:
   decompress_genome:
     runtime: 5
@@ -47,5 +48,5 @@ set-resources:
     slurm_extra: "'--tmp=500'"
   ani_calc:
     runtime: 300
-    mem_mb_per_cpu: 2000
+    mem_mb_per_cpu: 3000
     cpus_per_task: 10
