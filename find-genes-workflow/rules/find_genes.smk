@@ -99,14 +99,14 @@ rule genome_paths:
         genome_list = get_genome_paths()
     output:
         config['out_folder'] + '/ani_results/genomes_paths.txt'
-
-    run:
+    conda:
+        config['conda_env'] + '/biotools'
+    shell:
         '''
-        with open(output, "w") as f:
-            for genome in input.genome_list:
-                f.write(genome + "\n")  
-
+        python write_genome_file_paths.py -i {input.genome_list} -o {output}
         '''
+
+
 
 rule ani_calc:
     input:
