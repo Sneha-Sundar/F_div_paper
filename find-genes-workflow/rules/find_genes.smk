@@ -92,24 +92,31 @@ rule plasmidfinder:
         sed '1s/^/genome\t/; 2,$s/^/{wildcards.genome}\t/' {params.outdir}/results_tab.tsv > {output}
         '''
 
-rule ani_calc:
+
+
+rule genome_paths:
     input:
-        genome_list = get_genome_paths(),
+        genome_list = get_genome_paths()
     output:
-        ani_result = config['out_folder'] + '/ani_results/ani_results.tsv'
-    conda:
-        config['conda_env'] + '/fastani'
-    params:
-        outdir = config['out_folder'] + '/ani_results'
-    shell:
+        config['out_folder'] + '/ani_results/genomes_paths.txt'
+
+    run:
         '''
-        mkdir -p {params.outdir}
-        with open("params.outdir/query_genomes.txt", "w") as f:
-            for genome in {input.genome_list}:
-                f.write(genome + "\n")
-        with open("params.outdir/ref_genomes.txt", "w") as f:
-            for genome in {input.genome_list}:
+        with open(output, "w") as f:
+            for genome in input.genome_list:
                 f.write(genome + "\n")  
 
-        fastANI -ql {params.outdir}/query_genomes.txt -rl {params.outdir}/ref_genomes.txt -o {output.ani_result} --threads {threads}
         '''
+
+rule ani_calc:
+    input:
+        genome_paths = config['out_folder'] + '/ani_results/genomes_paths.txt'
+    output:
+        config['out_folder'] + '/ani_results/ani_results.tsv'
+    conda:
+        config['conda_env'] + '/fastani'
+    shell:
+        '''
+        fastANI -ql {input.genome_paths} -rl {input.genome_paths} -o {output} --threads {threads}
+        '''
+
