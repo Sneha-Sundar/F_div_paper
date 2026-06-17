@@ -99,6 +99,8 @@ rule genome_paths:
         genome_list = get_genome_paths()
     output:
         config['out_folder'] + '/ani_results/genomes_paths.txt'
+    conda:
+        config['conda_env']+'/biotools'
 
     run:
         '''

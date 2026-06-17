@@ -1,5 +1,5 @@
 #note: this is a sample profile file. You will need to change the paths to match your system.
-latency-wait: 60
+latency-wait: 180
 max-jobs-per-second: 10
 show-failed-logs: True
 jobs: 50 
