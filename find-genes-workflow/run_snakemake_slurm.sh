@@ -1,2 +1,2 @@
 #!/bin/bash
-snakemake --profile profile  
+snakemake --profile profile   
