@@ -143,6 +143,16 @@ genome_summary_df[,"bakta.n_distinct_hits"] <- rowSums(mat_PreAbs_genome_bakta)
 ```
 
 
+Add a column containing the number of contigs containing transfer gene hits to the genome summary table. 
+
+```{r}
+contig_summary <- pires1200_bakta %>% group_by(genome, contig) %>% summarise(n.genes = n()) 
+
+n.contigs.bakta <- contig_summary %>% group_by(genome) %>% summarise(n.contigs.bakta=n()) 
+
+
+genome_summary_df<- genome_summary_df %>% left_join(n.contigs.bakta, by = c("target_genome"="genome")) %>% mutate(n.contigs.bakta= replace_na(n.contigs.bakta,0))
+```
 
 
 ```{r}
@@ -154,7 +164,16 @@ genome_summary_df <- genome_summary_df %>% mutate(bakta.n_hits_genome_category =
 
 genome_summary_df
 ```
+Add a column containing the number of contigs containing transfer gene hits to the genome summary table. 
 
+```{r}
+contig_summary <- pires1200_bakta %>% group_by(genome, contig) %>% summarise(n.genes = n()) 
+
+n.contigs.bakta <- contig_summary %>% group_by(genome) %>% summarise(n.contigs.bakta=n()) 
+
+
+genome_summary_df<- genome_summary_df %>% left_join(n.contigs.bakta, by = c("target_genome"="genome")) %>% mutate(n.contigs.bakta= replace_na(n.contigs.bakta,0))
+```
 
 # Count functional transfer operons
 

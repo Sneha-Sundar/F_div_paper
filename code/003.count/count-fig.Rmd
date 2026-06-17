@@ -544,5 +544,7 @@ p3
 
 ggsave(paste0(plots_folder,"/","functional_vs_coluzziclassification.svg"), units = "cm",height = 15, width = 12, dpi = 600)
 ```
-deps <- renv::dependencies(".")
+
+
+
 

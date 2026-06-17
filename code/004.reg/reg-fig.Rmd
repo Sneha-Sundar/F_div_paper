@@ -121,6 +121,9 @@ get_aic_submodel(covariates[1])
 
 model_selection_table <- model_selection_table %>% as.data.frame() %>% rownames_to_column("Variables")
 ```
+```{r}
+model_selection_table
+```
 
 ## Table S4: Main effects model selection
 
@@ -320,6 +323,27 @@ interaction_effects_contrasts %>% filter(p.value < 0.05)
 
 Multiple testing correction was done within each variable using Tukey method implemented in emmeans. Tukey method works well for pairwise contrasts. Bonferonni was too strict. Holm was a bit relaxed (significance reaches even if 95% confidence limits crosses 1).
 
+## What about differences across animal environments within each Sample source ? 
+
+```{r}
+
+host_em_by_sample_source <- emmeans(model_PhG_resist,pairwise ~ Generic_Host | Source_Niche, type = "response",infer = c(T, T))
+host_em_by_sample_source
+
+pairs(host_em_by_sample_source)
+
+contrast(host_em_by_sample_source, list(`Poultry  vs. Bovine` = c(-1,1,0), 
+                       `Swine  vs. Bovine` = c(-1,0,1),
+                       `Swine vs. Poultry` = c(0,-1, 1)),by="Source_Niche",adjust = "sidak", options = list("infer" = c(T,T))) %>% 
+  as.data.frame() %>% 
+  mutate(Variable = "Animal Environment within Sample Source")
+
+contrast(host_em_by_sample_source)
+
+```
+
+
+
 ## Plots
 
 ## Main effect plots
@@ -505,3 +529,39 @@ ggsave(paste0(plots_folder,"/","contrasts_interactions_all.pdf"),p_contrasts_spl
 ```
 
 
+## Do you see differences between animal environments within just food samples?
+
+```{r}
+model_food <-  glm(is.functional ~ Generic_Host + PhG + Acq_Resist + PhG:Acq_Resist, data = test_df %>% filter(Source_Niche == "Food"), family = "binomial")
+
+host_em <- emmeans(model_food, "Generic_Host", type = "response",infer = c(T, T))
+
+host_contrast <- contrast(host_em, list(`Poultry  vs. Bovine` = c(-1,1,0), 
+                       `Swine  vs. Bovine` = c(-1,0,1),
+                       `Swine vs. Poultry` = c(0,-1, 1)),adjust = "sidak", options = list("infer" = c(T,T))) %>% 
+  as.data.frame() %>% 
+  mutate(Variable = "Animal Environment")
+
+host_em
+host_contrast
+```
+
+
+```{r}
+model_livestock <-  glm(is.functional ~ Generic_Host + PhG + Acq_Resist + PhG:Acq_Resist, data = test_df %>% filter(Source_Niche == "Livestock"), family = "binomial")
+
+
+summary(model_livestock)
+
+host_em <- emmeans(model_livestock, "Generic_Host",infer = c(T, T))
+
+host_contrast <- contrast(host_em, list(`Poultry  vs. Bovine` = c(-1,1,0), 
+                       `Swine  vs. Bovine` = c(-1,0,1),
+                       `Swine vs. Poultry` = c(0,-1, 1)),adjust = "sidak", options = list("infer" = c(T,T))) %>% 
+  as.data.frame() %>% 
+  mutate(Variable = "Animal Environment")
+
+
+host_em
+host_contrast
+```

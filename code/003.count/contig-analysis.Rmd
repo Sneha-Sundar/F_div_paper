@@ -1,0 +1,90 @@
+---
+title: "Contig-level distribution of transfer genes"
+author: "Sneha Sundar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(here)
+library(tidyverse)
+source(here("code/000.tools/helpers.R"))
+source(here("code/000.tools/plot.R"))
+
+
+
+plots_folder <- here("data/processed/manuscript_plots/003.count")
+
+```
+
+
+
+## Load required data
+
+```{r}
+#bakta annotation file
+INPUT_BAKTA_FILE <- here("data/processed/002.find_genes/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/pires1200bakta_onlyblastcontigs_rmnonF-like_trantotraf.tsv")
+
+pires1200_bakta <- load_processed_bakta(INPUT_BAKTA_FILE) 
+
+#genome level summary
+genome_summary_df <- read.table(here("data/processed/002.find_genes/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/genome_tra_count_summary.tsv"),header = T,sep = '\t', quote = "")
+
+```
+
+
+
+```{r}
+p1 <- genome_summary_df %>% ggplot() +
+geom_histogram(aes(x=n.contigs.bakta),bins = 30) + 
+  ylab("Number of genomes") +
+ # scale_x_continuous(limits = c(0,30))+
+  xlab("Number of contigs with detected transfer gene hits")+
+  theme_manuscript
+
+p1
+ggsave(paste0(plots_folder,"/","bakta_hist_contigs_with_hits.svg"),p1, units = "cm",height = 8, width = 16)
+```
+What proportion of transfer gene hits are found across several contigs?
+
+```{r}
+genome_summary_df %>% filter(n.contigs.bakta>1)
+340/1200
+```
+
+
+```{r}
+
+p2 <- genome_summary_df %>% ggplot() + geom_histogram(aes(x=n.contigs.bakta,fill=functional_category), bins = 25) + facet_wrap(vars(functional_category), ncol=3) + 
+  xlab("Number of contigs with detected transfer gene hits")+
+  ylab("Number of genomes")+
+  theme_manuscript + 
+  scale_fill_manual(values = functional_colours, name = "Functional completeness") + 
+  theme(legend.position = "top")
+
+p2
+ggsave(paste0(plots_folder,"/","bakta_hist_contigs_with_hits_by_functional_category.svg"),p2, units = "cm",height = 8, width = 16, dpi = 600)
+
+```
+
+```{r}
+complete <- genome_summary_df %>% filter(functional_category =="complete") %>% pull(n.contigs.bakta)
+
+incomplete <- genome_summary_df %>% filter(functional_category =="incomplete") %>% pull(n.contigs.bakta)
+
+mean(complete)
+mean(incomplete)
+```
+
+
+```{r}
+wilcox.test(n.contigs.bakta~functional_category, data = genome_summary_df %>% filter(functional_category %in% c("complete","incomplete")) %>% mutate(functional_category=as.factor(functional_category)),alternative = "less")
+
+
+pairwise.wilcox.test(genome_summary_df$n.contigs.bakta,genome_summary_df$functional_category)
+```
+

@@ -1,0 +1,120 @@
+---
+title: "Temporal effects"
+author: "Sneha Sundar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Libraries
+
+```{r}
+library(here)
+library(tidyverse)
+library(easystats)
+library(epitools) #calculation of binomial confidence intervals
+source(here("code/000.tools/helpers.R"))
+source(here("code/000.tools/plot.R"))
+```
+
+
+## Load main dataset
+
+Input summary table for all genomes. 
+```{r}
+genome_summary_df <- read.table(here("data/processed/002.find_genes/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/genome_tra_count_summary.tsv"),header = T,sep = '\t', quote = "")
+
+```
+
+Plots folder
+```{r}
+plots_folder <- here("data/processed/manuscript_plots/004.reg")
+
+```
+
+
+```{r}
+genome_summary_df <- genome_summary_df %>% mutate("Sampling_Year" = if_else(Year < 2017,"Before 2017","After 2017")) %>% 
+  mutate(Sampling_Year = factor(Sampling_Year,levels = c("Before 2017","After 2017")))
+```
+
+
+
+```{r}
+p <- genome_summary_df %>% ggplot(aes(x = Sampling_Year)) + 
+  geom_bar(aes(fill = functional_category)) +
+  facet_wrap(vars(Generic_Host),scales = "free") + 
+  scale_x_discrete(name = "Sample Year",labels = c("Before\n2017","After\n2017")) +
+  scale_y_continuous(name = "Number of genomes") +
+  scale_fill_manual(
+    values = functional_colours, name = "Functional completeness")  + 
+  theme_manuscript +
+  theme(legend.position = "top")
+p
+ggsave(paste0(plots_folder,"/","completeness_by_animal_sample_year.svg"),p, units = "cm",height = 8, width = 16, dpi = 600)
+
+```
+
+```{r}
+test_df <- genome_summary_df %>% 
+            select(Generic_Host, PhG, Source_Niche, is.functional, Acq_Resist,`Year_Category`) %>% 
+            mutate(Generic_Host = factor(Generic_Host), 
+                   is.functional = (is.functional*1), 
+                   PhG = factor(PhG),                                     
+                   Source_Niche = as.factor(Source_Niche),
+                   Acq_Resist = as.factor(Acq_Resist),
+           Sampling_Year = as.factor(Sampling_Year))
+
+test_df
+```
+Main effect model with the lowest AIC. 
+
+```{r}
+variables <- c("Generic_Host","PhG", "Source_Niche", "Acq_Resist","Year_Category")
+
+variable_combinations <- combn(variables, 2) %>% t()
+variable_combinations
+paste0("is.functional ~ ",variable_combinations[,1]," + ", variable_combinations[2])
+
+
+get_formula_strings <- function(vars, subset){
+  combinations <- combn(vars, subset) %>% t()
+  
+  result <- apply(combinations, 1, function(x) paste(x, collapse = "+"))
+  return(result)
+}
+
+covariates <- c(get_formula_strings(variables,subset = 1),get_formula_strings(variables,subset = 2),get_formula_strings(variables,subset = 3),get_formula_strings(variables,subset = 4))
+
+get_aic_submodel <- function(covariate, response_variable = "is.functional",dat = test_df){
+  formula.string <- paste0(response_variable," ~ ",covariate)
+  log_submodel <- glm(formula = as.formula(formula.string),family = "binomial", data = dat)
+  return(c(Residual_df = log_submodel$df.residual,Residual_deviance  = log_submodel$deviance, AIC = log_submodel$aic))
+}
+
+model_selection_table <- sapply(covariates, FUN = get_aic_submodel) %>% t()
+
+get_aic_submodel(covariates[1])
+
+model_selection_table <- model_selection_table %>% as.data.frame() %>% rownames_to_column("Variables")
+
+model_selection_table %>% arrange(AIC)
+model_selection_table[which.min(model_selection_table$AIC),]
+```
+```{r}
+full_main_effects <- glm(is.functional ~ Generic_Host + PhG + Source_Niche + Acq_Resist + Year_Category, data = test_df, family = "binomial")
+
+step(full_main_effects,direction = "backward")
+
+anova(full_main_effects,test = "LRT") 
+
+
+```
+
+```{r}
+genome_summary_df %>% ggplot() + geom_bar(aes(x=Source_Niche,fill=PhG)) + facet_wrap(vars(Generic_Host))
+```
+
