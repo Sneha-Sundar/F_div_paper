@@ -103,20 +103,21 @@ rule genome_paths:
         config['conda_env'] + '/biotools'
     shell:
         '''
-        python write_genome_file_paths.py -i {input.genome_list} -o {output}
+        python scripts/write_genome_file_paths.py -i {input.genome_list} -o {output}
         '''
 
 
 
 rule ani_calc:
     input:
-        genome_paths = config['out_folder'] + '/ani_results/genomes_paths.txt'
+        genome = config['genomes_folder'] + '/{genome}.fna',
+        ref_list = config['out_folder'] + '/ani_results/genomes_paths.txt'
     output:
-        config['out_folder'] + '/ani_results/ani_results.tsv'
+        config['out_folder'] + '/ani_results/{genome}.tsv'
     conda:
         config['conda_env'] + '/fastani'
     shell:
         '''
-        fastANI -ql {input.genome_paths} -rl {input.genome_paths} -o {output} --threads {threads}
+        fastANI -q {input.genome} --rl {input.ref_list} -o {output} --threads {threads}
         '''
 

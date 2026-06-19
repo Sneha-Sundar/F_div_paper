@@ -33,4 +33,5 @@ def get_plasmidfinder_output():
     return expand(config['out_folder'] + '/plasmidfinder_res' + '/{genome}/{genome}.tsv',genome = samples)
 
 def ani_output():
-    return config['out_folder'] + '/ani_results' + '/ani_results.tsv'
+    samples = get_input_samples()
+    return expand(config['out_folder'] + '/ani_results' + '/{genome}.tsv',genome = samples)
