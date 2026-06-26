@@ -146,10 +146,11 @@ rule mob_recon:
     conda:
         config['conda_env'] + '/mob_suite'
     params:
-        chromosome_db = config['mob_recon']['chromosome_db']
+        chromosome_db = config['mob_recon']['chromosome_db'],
+        outdir = config['out_folder'] + '/mob_recon/{genome}'
     shell:
         '''
-        mob_recon --infile {input.genome} -o {output} -s {wildcards.genome} -p {wildcards.genome} -n {threads} -g {params.chromosome_db}
+        mob_recon --infile {input.genome} -o {params.outdir} -s {wildcards.genome} -p {wildcards.genome} -n {threads} -g {params.chromosome_db}
         '''
     
 
