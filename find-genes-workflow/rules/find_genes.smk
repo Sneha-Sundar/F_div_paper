@@ -107,7 +107,6 @@ rule genome_paths:
         '''
 
 
-
 rule ani_calc:
     input:
         genome = config['genomes_folder'] + '/{genome}.fna',
@@ -120,4 +119,37 @@ rule ani_calc:
         '''
         fastANI -q {input.genome} --rl {input.ref_list} -o {output} --threads {threads}
         '''
+
+rule filter_seq:
+    input:
+        genomad_class = config['out_folder'] + '/genomad_results/{genome}_aggregated_classification/{genome}_aggregated_classification.tsv',
+        genome = config['genomes_folder'] + '/{genome}.fna'
+    output:
+        plasmid_seq = config['out_folder']+ '/genomad_results/plasmid_seq/{genome}_plasmid.fna'
+    conda:
+        config['conda_env'] + '/biotools'
+    params:
+        genomic_unit = config['plasmid_seq']['genomic_unit'],
+        score_threshold = config['plasmid_seq']['score_threshold']
+    shell:
+        '''
+        python filter_contigs_with_genomad.py --genome {input.genome} --classification_file {input.genomad_class} --outfile {output.plasmid_seq} --genomic_unit {params.genomic_unit} --score_threshold {params.score_threshold}
+
+        '''
+
+
+rule mob_recon:
+    input:
+        genome = config['genomes_folder'] + '/{genome}.fna'
+    output:
+        config['out_folder'] + '/mob_recon/{genome}/contig_report.txt'
+    conda:
+        config['conda_env'] + '/mob_suite'
+    params:
+        chromosome_db = config['mob_recon']['chromosome_db']
+    shell:
+        '''
+        mob_recon --infile {input.genome} -o {output} -s {wildcards.genome} -p {wildcards.genome} -n {threads} -g {params.chromosome_db}
+        '''
+    
 

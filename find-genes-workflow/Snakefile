@@ -15,4 +15,4 @@ onsuccess:
 ##### Target rules #####
 rule all:
     input:
-        ani_output()
+        get_mobrecon_output()

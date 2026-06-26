@@ -35,3 +35,12 @@ def get_plasmidfinder_output():
 def ani_output():
     samples = get_input_samples()
     return expand(config['out_folder'] + '/ani_results' + '/{genome}.tsv',genome = samples)
+
+def filter_seq_output():
+    samples = get_input_samples()
+    return expand(config['out_folder'] + '/genomad_results/plasmid_seq' + '/{genome}_plasmid.fna',genome = samples)
+
+
+def get_mobrecon_output():
+    samples = get_input_samples()
+    return expand(config['out_folder'] + '/mob_recon' + '/{genome}/contig_report.txt',genome = samples)

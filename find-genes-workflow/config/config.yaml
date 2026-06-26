@@ -1,7 +1,7 @@
 #note: this is a sample config file. You will need to change the paths to match your system.
 
 #list of genome ids
-samples: config/BioSample_ecoli.txt 
+samples: config/test.txt 
 
 #folder where the genomes are stored
 genomes_folder: /cluster/scratch/ssundar/genomes/pires_1200/Ecoli
@@ -30,6 +30,13 @@ genomad:
 
 plasmidfinder:
   plasmidfinder_db: ../databases/plasmidfinder_db
+
+filter_seq:
+  genomic_unit: plasmid
+  score_threshold: 0.7
+
+mob_recon:
+  chromosome_db: /cluster/scratch/ssundar/databases/mob_suite/Enterobacteriacea_DB/2019-11-NCBI-Enterobacteriacea-Chromosomes
 
 
 
