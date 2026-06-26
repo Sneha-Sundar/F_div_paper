@@ -129,8 +129,8 @@ rule filter_seq:
     conda:
         config['conda_env'] + '/biotools'
     params:
-        genomic_unit = config['plasmid_seq']['genomic_unit'],
-        score_threshold = config['plasmid_seq']['score_threshold']
+        genomic_unit = config['filter_seq']['genomic_unit'],
+        score_threshold = config['filter_seq']['score_threshold']
     shell:
         '''
         python filter_contigs_with_genomad.py --genome {input.genome} --classification_file {input.genomad_class} --outfile {output.plasmid_seq} --genomic_unit {params.genomic_unit} --score_threshold {params.score_threshold}
