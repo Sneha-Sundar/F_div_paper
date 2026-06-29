@@ -60,3 +60,15 @@ set-resources:
     runtime: 15
     mem_mb_per_cpu: 1000
     slurm_extra: "'--tmp=500'"
+
+set-threads:
+  decompress_genome: 1
+  contig_lengths: 1
+  annotate_bakta: 8
+  tblastn_tra_genes: 4
+  genomad: 8
+  plasmidfinder: 1
+  ani_calc: 32
+  filter_seq: 1
+  mob_recon: 8
+
