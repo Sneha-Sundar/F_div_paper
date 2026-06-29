@@ -43,4 +43,4 @@ def filter_seq_output():
 
 def get_mobrecon_output():
     samples = get_input_samples()
-    return expand(config['out_folder'] + '/mob_recon' + '/{genome}/contig_report.txt',genome = samples)
+    return expand(config['out_folder'] + '/mob_recon' + '/{genome}/{genome}.contig_report.txt',genome = samples)

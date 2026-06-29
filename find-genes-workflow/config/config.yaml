@@ -7,7 +7,7 @@ samples: config/test.txt
 genomes_folder: /cluster/scratch/ssundar/genomes/pires_1200/Ecoli
 
 #folder where the results will be stored
-out_folder: ../data/processed/002.find_genes/pires1200/ecoli
+out_folder: /cluster/scratch/ssundar/genomes/pires_1200
 
 #where conda environments are stored
 conda_env: /cluster/home/ssundar/miniconda3/envs  
@@ -36,8 +36,7 @@ filter_seq:
   score_threshold: 0.7
 
 mob_recon:
-  chromosome_db: /cluster/scratch/ssundar/databases/mob_suite/Enterobacteriacea_DB/2019-11-NCBI-Enterobacteriacea-Chromosomes
-
+  chromosome_db: /cluster/scratch/ssundar/databases/mob_suite/Enterobacteriacea_DB/2019-11-NCBI-Enterobacteriacea-Chromosomes.fasta
 
 
   

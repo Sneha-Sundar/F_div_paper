@@ -142,7 +142,7 @@ rule mob_recon:
     input:
         genome = config['genomes_folder'] + '/{genome}.fna'
     output:
-        config['out_folder'] + '/mob_recon/{genome}/contig_report.txt'
+        config['out_folder'] + '/mob_recon/{genome}/{genome}.contig_report.txt'
     conda:
         config['conda_env'] + '/mob_suite'
     params:
@@ -150,7 +150,7 @@ rule mob_recon:
         outdir = config['out_folder'] + '/mob_recon/{genome}'
     shell:
         '''
-        mob_recon --infile {input.genome} -o {params.outdir} -s {wildcards.genome} -p {wildcards.genome} -n {threads} -g {params.chromosome_db}
+        mob_recon --infile {input.genome} -o {params.outdir} -s {wildcards.genome} -p {wildcards.genome} -n {threads} -g {params.chromosome_db} -f
         '''
     
 
