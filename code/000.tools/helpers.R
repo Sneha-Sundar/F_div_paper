@@ -939,3 +939,17 @@ extract_lrt <- function(model, full_model) {
     p_value = a$`Pr(>Chi)`[2]
   )
 }
+
+
+associations_test <- function(var1, var2, df = genome_summary_df){
+  freq_table <- table(df[[var1]], df[[var2]])
+  print(freq_table)
+  
+  model.chi <- chisq.test(freq_table)
+  
+  effectsize.modelchi <- chisq_to_cramers_v(chisq = model.chi$statistic, n = length(df[[var1]]), nrow=nrow(model.chi$observed), ncol=ncol(model.chi$observed), adjust = T, alternative = "two.sided")
+  
+  return(c(V1 = var1, V2 = var2,model.chi$statistic, model.chi$parameter, p.val = model.chi$p.value,effectsize.modelchi))
+}
+
+
