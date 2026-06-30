@@ -1,7 +1,7 @@
 #note: this is a sample config file. You will need to change the paths to match your system.
 
 #list of genome ids
-samples: config/test.txt 
+samples: config/BioSample_ecoli.txt 
 
 #folder where the genomes are stored
 genomes_folder: /cluster/scratch/ssundar/genomes/pires_1200/Ecoli
