@@ -1,0 +1,131 @@
+---
+title: "Plamid cluster distribution"
+author: "Sneha Sundar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Script/Statistics for Fig S6.
+
+Is F-like transfer operon completeness associated to specific plasmid clusters? 
+
+We used MOB-recon from MOB-Suite (v.3.1.9, default parameters, using a set of
+closed Enterobacteriaceae genomes for chromosome depletion) for plasmid recon-
+struction and clustering. The default mash distance threshold of 0.05 was used to
+assign plasmid cluster identities. Each genome is represented as a binary vector that
+describes the presence and absence of these plasmid cluster IDs.
+The plasmid clusters specifically associated with the F-like plasmid-associated contigs identified using our transfer gene finding protocol were considered to be F-like plasmid
+clusters. 
+
+```{r}
+## Libraries
+
+library(here)
+library(tidyverse)
+
+source(here("code/000.tools/helpers.R"))
+source(here("code/000.tools/plot.R"))
+```
+
+## Load main dataset
+
+Input summary table for all genomes. 
+```{r}
+genome_summary_df <- read.table(here("data/processed/002.find_genes/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/genome_tra_count_summary.tsv"),header = T,sep = '\t', quote = "")
+
+
+genome_summary_df
+```
+
+
+Plots folder
+```{r}
+plots_folder <- here("data/processed/manuscript_plots/006.plasmid.context")
+
+```
+
+## Bakta contig-level summary 
+
+
+```{r}
+INPUT_BAKTA_FILE <- here("data/processed/002.find_genes/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/pires1200bakta_onlyblastcontigs_rmnonF-like_trantotraf.tsv")
+
+pires1200_bakta <- load_processed_bakta(INPUT_BAKTA_FILE) 
+
+pires1200_bakta_contig_summary <- pires1200_bakta %>% group_by(genome_contig) %>% summarise(n.genes = n()) %>% 
+  mutate(genome = str_split_i(genome_contig,"_",1))
+
+```
+
+
+
+## Results from reconstructing plasmid sequences using mob_recon
+
+
+```{r}
+mob_recon_results <- read.table(here("data/processed/002.find_genes/pires1200/ecoli/mob_recon/all.mge_report.txt"),header = T,sep = '\t', quote = "")
+
+
+mob_recon_results <- mob_recon_results %>% 
+  mutate(contig_id = str_split_i(contig_id," ",1)) %>% 
+  mutate(genome_contig = paste0(sample_id,"_",contig_id),.after = 1)
+
+
+mob_typer_results <- read.table(here("data/processed/002.find_genes/pires1200/ecoli/mob_recon/all.mobtyper_results.txt"),header = T,sep = '\t', quote = "")
+
+
+mob_typer_results <- mob_typer_results %>% mutate(genome = str_split_i(sample_id,":",1),.before = 2)
+
+```
+
+
+## What plasmid clusters (if any) are the contigs we identify as F-like assigned to? 
+
+
+```{r}
+mob_recon_results_F_like  <- pires1200_bakta_contig_summary %>% left_join(mob_recon_results) %>% group_by(genome) %>% summarise(F_like_plasmid_cluster = paste(unique(primary_cluster_id),collapse = "_")) %>% mutate(F_like_plasmid_cluster = str_remove(F_like_plasmid_cluster,"_NA|NA_")) %>% 
+  mutate(F_like_plasmid_cluster = if_else(F_like_plasmid_cluster=="NA"|F_like_plasmid_cluster=="",NA,F_like_plasmid_cluster))
+
+
+mob_recon_results_F_like %>% group_by(F_like_plasmid_cluster) %>% summarise(n())
+
+
+genome_summary_df <- genome_summary_df %>% left_join(mob_recon_results_F_like, join_by(target_genome == genome))
+
+```
+
+
+## Proportion of genomes in which the transfer operon is present (>= 5 transfer genes) that were assigned a plasmid cluster
+```{r}
+x <- genome_summary_df %>% filter(bakta.n_distinct_hits >=5) %>% pull(F_like_plasmid_cluster) %>% table(useNA = "ifany") %>% prop.table()
+
+
+1 - x[length(x)]
+```
+
+
+## What about genomes classified as missing F-like transfer operons? Only two have been assigned a plasmid cluster. 
+
+```{r}
+genome_summary_df %>% filter(bakta.n_distinct_hits <5) %>% pull(F_like_plasmid_cluster) %>% table(useNA = "ifany") 
+
+```
+
+## Figure: Tra operon functional completeness distribution of F-like plasmid clusters
+
+```{r}
+p <- genome_summary_df %>% filter(!is.na(F_like_plasmid_cluster)) %>% ggplot() + geom_bar(aes(y=F_like_plasmid_cluster,fill=functional_category)) + 
+  facet_wrap(vars(Generic_Host)) + 
+  scale_fill_manual(values=functional_colours,name="Functional completeness") + 
+  ylab("F-like plasmid cluster ID") +
+  theme_manuscript 
+
+p
+
+ggsave(paste0(plots_folder,"/","plasmid_clusters_host_functional_completeness.pdf"),p, units = "cm",height = 20, width = 24 , dpi = 600)
+```
+

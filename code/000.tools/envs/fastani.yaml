@@ -1,0 +1,9 @@
+name: fastani
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+  - nodefaults
+dependencies:
+  - fastani
+prefix: miniconda3/envs/fastani

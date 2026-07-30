@@ -1,9 +1,12 @@
 ---
-title: "Contig-level distribution of transfer genes"
+title: "Contig-level distribution of transfer genes/gene synteny"
 author: "Sneha Sundar"
 date: "`r Sys.Date()`"
 output: html_document
 ---
+
+Script and statistics for Fig S4
+
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -19,9 +22,11 @@ source(here("code/000.tools/plot.R"))
 
 plots_folder <- here("data/processed/manuscript_plots/003.count")
 
+
+
 ```
 
-
+# Contig-level distribition of transfer gene hits
 
 ## Load required data
 
@@ -37,6 +42,7 @@ genome_summary_df <- read.table(here("data/processed/002.find_genes/pires1200_on
 ```
 
 
+## Figure: In how many contigs are transfer gene hits found? 
 
 ```{r}
 p1 <- genome_summary_df %>% ggplot() +
@@ -49,13 +55,19 @@ geom_histogram(aes(x=n.contigs.bakta),bins = 30) +
 p1
 ggsave(paste0(plots_folder,"/","bakta_hist_contigs_with_hits.svg"),p1, units = "cm",height = 8, width = 16)
 ```
-What proportion of transfer gene hits are found across several contigs?
+
+
+What proportion of transfer gene hits are found across multiple contigs?
 
 ```{r}
-genome_summary_df %>% filter(n.contigs.bakta>1)
-340/1200
+(genome_summary_df %>% filter(n.contigs.bakta>1) |> nrow())/1200
+```
+```{r}
+(genome_summary_df %>% filter(n.contigs.bakta>2) |> nrow())/1200
+
 ```
 
+## Split across tra operon completeness category
 
 ```{r}
 
@@ -71,10 +83,13 @@ ggsave(paste0(plots_folder,"/","bakta_hist_contigs_with_hits_by_functional_categ
 
 ```
 
+## Average number of contigs on which transfer genes are found for genomes with complete and incomplete transfer operons
+
 ```{r}
 complete <- genome_summary_df %>% filter(functional_category =="complete") %>% pull(n.contigs.bakta)
 
 incomplete <- genome_summary_df %>% filter(functional_category =="incomplete") %>% pull(n.contigs.bakta)
+
 
 mean(complete)
 mean(incomplete)
@@ -87,4 +102,81 @@ wilcox.test(n.contigs.bakta~functional_category, data = genome_summary_df %>% fi
 
 pairwise.wilcox.test(genome_summary_df$n.contigs.bakta,genome_summary_df$functional_category)
 ```
+
+
+# Gene synteny
+
+
+## Get gene orders of all contigs contining F-like transfer genes and check if they are in the same order found on the classic F plasimd. 
+```{r}
+
+gene_orders <- sapply(unique(pires1200_bakta$genome_contig), extract_tra_gene_order, pires1200_bakta)
+
+
+positional_orders <- sapply(gene_orders, get_positional_order)
+
+is_F_order_vec <- sapply(unique(pires1200_bakta$genome_contig), check_if_F_order, pires1200_bakta)
+
+
+pires1200_bakta_contig_summary <- pires1200_bakta %>% group_by(genome_contig) %>% summarise(n.genes = n()) %>% 
+  mutate(is_F_order = is_F_order_vec) 
+
+
+
+pires1200_bakta_contig_summary <- pires1200_bakta_contig_summary %>% 
+  mutate(genome = str_split_i(pires1200_bakta_contig_summary$genome_contig,"_",1))
+
+
+
+pires1200_bakta_summary.Forder <- pires1200_bakta_contig_summary %>% group_by(genome) %>% summarise(prop.contigs.F_order = sum(is_F_order,na.rm=T)/sum(!is.na(is_F_order)), n.contigs = n(),n.contigs.more1gene =sum(!is.na(is_F_order)))
+
+pires1200_bakta_summary.Forder
+
+pires1200_bakta_summary.Forder <- pires1200_bakta_summary.Forder %>% mutate(all.F_order = if_else(prop.contigs.F_order == 1,true="yes",false = "no",missing="only 1 transfer gene on contig"))
+
+
+```
+
+
+# Figure: Is F order gene synteny conserved even when hits are distributed across multiple contigs? 
+
+```{r}
+
+
+p <- pires1200_bakta_summary.Forder %>% 
+  mutate(all.F_order = factor(all.F_order,levels = c("yes","no","only 1 transfer gene on contig"))) %>% 
+  ggplot() + 
+  geom_histogram(aes(x=n.contigs,fill=all.F_order),bins = 25) + 
+  xlab("Number of contigs with detected transfer gene hits") + 
+  ylab("Number of genomes") + 
+  scale_fill_manual(values = ternary_colours,name = "Is F plasmid gene order\nconserved?") +
+  themeBW_manuscript
+
+p
+
+ggsave(paste0(plots_folder,"/","bakta_gene_synteny_distribution.pdf"),p, units = "cm",height = 8, width = 16, dpi = 600)
+
+```
+
+## What proportion of genomes where gene synteny can be assessed (have at least one contig with more than 1 transfer gene) have a conserved F plasmid gene synteny? 
+
+```{r}
+genome_summary_df <- genome_summary_df %>% left_join(pires1200_bakta_summary.Forder %>% select(!n.contigs),by = join_by(target_genome == genome))
+
+```
+
+
+```{r}
+genome_summary_df %>% 
+  filter(!is.na(prop.contigs.F_order)) %>% pull(all.F_order) %>% table() %>% prop.table()
+
+table(pires1200_bakta_summary.Forder$all.F_order) %>% prop.table()
+```
+
+
+
+
+
+
+
 

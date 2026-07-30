@@ -1,0 +1,376 @@
+---
+title: "Identifying highly similar genomes"
+author: "Sneha Sundar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+Script for Fig S3
+
+Pairwise average nucleotide identity (ANI) was computed using default settings of fastANI (v.1.34) . Results are at `data/processed/002.find_genes/pires1200/ecoli/ani_results/allvsall_ani.tsv`.
+
+Highly similar genomes were identified with two criteria:
+
+1. pairwise ANI $\in$ [99.99,100)
+2. Had the same plasmid clusters (identified using mob-recon). Note that only presence of plasmid clusters was assessed not whether they were also similar at the nucleotide level. 
+
+These genomes were removed for testing the sensitivity of the logistic regression results (Fig S9). Genomes that we removed were saved in: `data/processed/001.sample_distribution/similar_genomes_to_remove.txt`
+
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+options(scipen = 1, digits = 5)
+```
+
+## Load packages
+```{r}
+
+library(tidyverse)
+library(here)
+library(igraph)
+
+plots_folder <- here("data/processed/manuscript_plots/001.sample_distribution")
+results_folder <- here("data/processed/001.sample_distribution")
+
+
+source(here("code/000.tools/helpers.R"))
+source(here("code/000.tools/plot.R"))
+```
+
+
+## Load genome summary results
+
+```{r}
+genome_summary_df <- read.table(here("data/processed/002.find_genes/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/genome_tra_count_summary.tsv"),header = T,sep = '\t', quote = "")
+```
+
+
+
+## Preprocess ani results to remove file paths and add column names. 
+```{r}
+#file_path_to_remove <- "xx/xx/xx"
+
+#ani_table <- read.table(here("data/processed/002.find_genes/pires1200/ecoli/ani_results/allvsall_ani.tsv"),header = F,sep = '\t', quote = "",col.names = c("Query","Target","ANI","n.bidir.fragments","total.q.fragments")) %>% mutate(Query=str_remove(Query,pattern=file_path_to_remove)
+                                                                                                                                                                                                                                      #Target=str_remove(Target,pattern=file_path_to_remove) )
+
+#ani_table <- ani_table %>% 
+#  mutate(Query=str_remove(Query,pattern=".fna"),
+#         Target=str_remove(Target,pattern=".fna"))
+
+
+#write.table(ani_table, here("data/processed/002.find_genes/pires1200/ecoli/ani_results/allvsall_ani.tsv"),sep = "\t",quote = F,row.names = T)
+
+```
+
+## Load ANI results
+
+```{r}
+
+
+ani_table <- read.table(here("data/processed/002.find_genes/pires1200/ecoli/ani_results/allvsall_ani.tsv"),header = T,sep = '\t', quote = "",)
+
+ani_table <- ani_table %>% mutate(mapped_fraction = n.bidir.fragments/total.q.fragments)
+
+ani_table
+
+```
+
+
+## Taking the average of the pairwise comparisons. 
+```{r}
+
+ani_table <- ani_table %>% mutate(is_identical = if_else(Query==Target,"identical","different")) %>% 
+  rowwise() %>% mutate(pair = paste(sort(c(Query,Target)),collapse = "_")) %>% ungroup()
+
+avg_pairwise_ANI_table <- ani_table %>% group_by(pair) %>% 
+  summarise(ANI = mean(ANI), mapped_fraction = mean(mapped_fraction))
+
+
+avg_pairwise_ANI_table %>% head()
+```
+
+
+```{r}
+avg_pairwise_ANI_table <- avg_pairwise_ANI_table %>% left_join(ani_table %>% select(pair,is_identical)) %>% separate_wider_delim(pair, delim="_",names=c("Genome1","Genome2"),cols_remove = F)
+
+avg_pairwise_ANI_table <- avg_pairwise_ANI_table %>% left_join(genome_summary_df,join_by(Genome1 == target_genome)) %>% left_join(genome_summary_df,join_by(Genome2 == target_genome),suffix = c(".genome1",".genome2"))
+```
+
+## Assigning categories to the pairwise ANI comparison
+
+* same PhG or different PhG
+* same ST or different ST
+* same sampling location or different sampling location
+* same sampling date or different sampling date
+* same animal or different animal
+
+```{r}
+
+avg_pairwise_ANI_table <- avg_pairwise_ANI_table %>% mutate(ST_comparison = if_else(ST.genome1 == ST.genome2, "same","different"),
+                            PhG_comparison = if_else(PhG.genome1 == PhG.genome2, "same","different"),
+                            Animal_comparison = if_else(Generic_Host.genome1 == Generic_Host.genome2, "same","different"),
+                            Location_comparison = if_else(Latitude.genome1 == Latitude.genome2 & Longitude.genome1==Longitude.genome2, "same","different"),
+                            Date_comparison = if_else(Collection_Date.genome1 == Collection_Date.genome2, "same","different"))
+```
+
+
+## ANI distribution
+
+Almost all identical genomes have pairwise ANI 100%. A few don't, but this is a known issue with fastANI that arises due to its use of a heuristic alignment procedure
+
+```{r}
+avg_pairwise_ANI_table %>% 
+  filter(is_identical == "identical") %>% 
+  ggplot() + geom_histogram(aes(x=ANI)) + 
+  theme_manuscript
+```
+
+
+```{r}
+p <- avg_pairwise_ANI_table %>% 
+  filter(is_identical == "different") %>% 
+  ggplot() + geom_histogram(aes(x=ANI,fill=Animal_comparison),alpha=0.4,position = "identity",bins=500) + 
+  scale_fill_manual(values = binary_colours,name="Animal") + 
+  theme_manuscript + 
+  theme_legend_inside_right_top_manuscript
+
+p
+
+ggsave(paste0(plots_folder,"/","animal_ani.pdf"),p, units = "cm",height = 7, width = 10, dpi = 600)
+
+```
+
+## Figure: ANI distribution of genomes belonging to the same PhG and different PhG. 
+
+
+
+```{r}
+p <- avg_pairwise_ANI_table %>% 
+  filter(is_identical == "different") %>% 
+  ggplot() + geom_histogram(aes(x=ANI,fill=PhG_comparison),alpha=0.4,position = "identity",bins=500) + 
+  scale_fill_manual(values = binary_colours,name="PhG") + 
+  theme_manuscript + 
+  theme_legend_inside_right_top_manuscript
+
+p
+
+ggsave(paste0(plots_folder,"/","phg_ani.pdf"),p, units = "cm",height = 7, width = 10, dpi = 600)
+
+```
+
+## Figure: ANI distribution of genomes belonging to the same ST and different ST. 
+
+```{r}
+
+p <- avg_pairwise_ANI_table %>% 
+  filter(is_identical == "different") %>% 
+  ggplot() + geom_histogram(aes(x=ANI,fill=ST_comparison),alpha=0.4,position = "identity",bins=500) + 
+  scale_fill_manual(values = binary_colours,name="ST") + 
+  theme_manuscript + 
+    theme_legend_inside_right_top_manuscript
+
+
+ggsave(paste0(plots_folder,"/","ST_ani.pdf"),p, units = "cm",height = 7, width = 10, dpi = 600)
+
+```
+
+
+
+## Figure: ANI distribution of genomes with pairwise ANI >= 99.9\% (similar genomes) with the same animal environment, location, sampling date and sequence type
+
+
+99.99\% can be considered a strain threshold. 
+
+```{r}
+
+plot_ANI_df <- avg_pairwise_ANI_table %>% filter(is_identical=="different",
+                                                ANI>=99.9)
+
+plot_ANI_df <- plot_ANI_df %>% mutate(animal_location_and_date_comparison = if_else(Animal_comparison == "same"&Location_comparison == "same"&Date_comparison == "same"& ST_comparison == "same", "same","different") )
+
+
+
+p <- plot_ANI_df %>% 
+  filter(is_identical == "different") %>% 
+  ggplot() + geom_histogram(aes(x=ANI,fill=animal_location_and_date_comparison),alpha=0.4,position = "identity",bins=50) + 
+  scale_fill_manual(values = binary_colours,name="Animal, location, collection date, ST") + 
+  geom_vline(xintercept = 99.99,color="black",linetype="dashed") +
+    scale_x_continuous(breaks = seq(99.90,100.00,0.02)) +
+  theme_manuscript + 
+  theme(legend.position = "bottom")
+
+
+p
+
+
+ggsave(paste0(plots_folder,"/","animal_loc_date_ST_ani_99.9.pdf"),p, units = "cm",height = 9, width = 14, dpi = 600)
+
+
+```
+
+# Identifying highly similar genomes based on ANI
+
+Clustering potential strains defined just based on ani threshold:
+
+```{r}
+# similarity threshold 
+threshold = 99.99
+
+#filter comparisons that pass the threshold
+filtered_ani_table <- avg_pairwise_ANI_table %>% filter(is_identical == "different", ANI >= threshold) 
+
+#forming list of edges 
+edge_list <- filtered_ani_table %>% select(Genome1, Genome2)
+
+#making a undirected graph from the data: A-B: 99.998, B-C: 99.99, A,B,C will then form a connected component.  
+G <- graph_from_data_frame(d = edge_list, directed = F)
+
+#length of graph
+G %>% length()
+
+# finding connected Components (Single-Linkage Clustering)
+components <- components(G)
+
+#Assign cluster ids to the connected components
+clusters_df <- data.frame(
+  Cluster = paste0("Cluster_", components$membership),
+  Genome = names(components$membership)
+) %>% 
+  arrange(Cluster, Genome)
+
+clusters_df
+```
+
+
+We clustered highly similar genomes coming from the same geographic location, and sampling date and sequence type. 
+
+```{r}
+
+
+threshold = 99.99
+
+#filter comparisons that pass the threshold
+filtered_ani_table <- avg_pairwise_ANI_table %>% filter(is_identical == "different", 
+                                                        ANI >= threshold, 
+                                                        Collection_Date.genome1 == Collection_Date.genome2,
+                                                        Latitude.genome1==Latitude.genome2,
+                                                        Longitude.genome1==Longitude.genome2,
+                                                        ST.genome1==ST.genome2,
+                                                        Generic_Host.genome1==Generic_Host.genome2) 
+
+#forming list of edges 
+edge_list <- filtered_ani_table %>% select(Genome1, Genome2)
+
+#making a undirected graph from the data: A-B: 99.998, B-C: 99.99, A,B,C will then form a connected component.  
+G <- graph_from_data_frame(d = edge_list, directed = F)
+
+#length of graph
+G %>% length()
+
+# finding connected Components (Single-Linkage Clustering)
+components <- components(G)
+
+#Assign cluster ids to the connected components
+clusters_df <- data.frame(
+  Cluster = paste0("Cluster_", components$membership),
+  Genome = names(components$membership)
+) %>% 
+  arrange(Cluster, Genome)
+
+clusters_df
+```
+
+## Identifying highly similar genomes that also have the the same plasmid clusters. 
+
+
+
+Loading mob-recon results data which tell me the plasmid cluster assignment (if it worked) to reconstructed plasmids in each genome. The default mash distance threshold of 0.05 was used to assign plasmid cluster identities. 
+```{r}
+all.mob.typer.df <- read.table(here("data/processed/002.find_genes/pires1200/ecoli/mob_recon/all.mobtyper_results.txt"),header = T,sep = '\t', quote = "")
+
+
+all.mob.typer.df <- all.mob.typer.df %>% mutate(genome = str_split_i(sample_id,":",1),.before=1)
+
+all.mob.typer.df <- all.mob.typer.df %>% left_join(clusters_df,by = join_by(genome==Genome))  
+
+## Pick out the highly similar genomes 
+similar_genomes.mob.typer.df <- all.mob.typer.df %>% filter(genome %in% filtered_ani_table$Genome1|genome %in% filtered_ani_table$Genome2)
+
+```
+
+
+
+```{r}
+
+
+pa.mat <- create_plasmid_cluster_presence_absence_matrix(similar_genomes.mob.typer.df) 
+
+#keep only the non-novel plasmids: since we do not know if the two genomes have the same novel plasmid (they are assigned different ids since the reconstruction and clustering process works at the genome level)
+pa.mat.nonnovel <- pa.mat[,!startsWith(colnames(pa.mat),"novel")]
+
+
+
+#compute pairwise jaccard similarity of plasmid content
+filtered_ani_table <- filtered_ani_table %>% 
+  rowwise() %>% 
+  mutate(plasmid_jaccard_similarity = compute_jaccard_similarity(Genome1, Genome2,pa.mat.nonnovel),.before = is_identical) %>% 
+  ungroup()
+
+ 
+
+
+```
+
+
+Again form connected components based on jaccard similarity index of plasmid content between two genomes.
+
+```{r}
+edge_list <- filtered_ani_table %>% filter(plasmid_jaccard_similarity == 1) %>% select(Genome1, Genome2)
+
+
+G <- graph_from_data_frame(d = edge_list, directed = F)
+
+
+V(G) %>% length()
+
+components <- components(G)
+
+components
+
+#similar genomes and plasmid content
+clusters_df <- data.frame(
+  Cluster = paste0("Cluster_", components$membership),
+  Genome = names(components$membership)
+) %>% 
+  arrange(Cluster, Genome)
+
+clusters_df
+
+
+write.table(clusters_df,file = paste0(results_folder,"/highly_similar_genomes_ANI99.99_plasmid_jaccard_similarity1.tsv"),quote = F,sep = "\t",row.names = F)
+```
+
+## Keep a random representative genome from each cluster. 
+```{r}
+r
+
+set.seed(1)
+
+genomes_to_keep <- clusters_df %>%
+  group_by(Cluster) %>%
+  # Randomly pick exactly 1 row from each cluster group
+  slice_sample(n = 1) %>%
+  ungroup() %>% pull(Genome)
+
+
+genomes_to_remove <- clusters_df %>% filter(!(Genome %in% genomes_to_keep)) %>% pull(Genome)
+```
+
+## Save the genomes to remove for sensitivity testing. 
+```{r}
+write_lines(genomes_to_remove,file = paste0(results_folder,"/similar_genomes_to_remove.txt"))
+
+```
+

@@ -153,4 +153,16 @@ rule mob_recon:
         mob_recon --infile {input.genome} -o {params.outdir} -s {wildcards.genome} -p {wildcards.genome} -n {threads} -g {params.chromosome_db} -f
         '''
     
-
+# rule copla:
+#     input:
+#         genome = config['out_folder'] + '/mob_recon/{genome}/{genome}.plasmids.fasta'
+#     output:
+#         config['out_folder'] + '/copla_results/{genome}/query.ptu_prediction.tsv'
+#     conda:
+#         config['conda_env'] + '/copla'
+#     params:
+#         copla_program_path = config['copla']['copla_program_path'],
+#         outdir = config['out_folder'] + '/copla_results/{genome}'
+#     shell:
+#         '''
+#         python {params.copla_program_path}/bin/copla.py 

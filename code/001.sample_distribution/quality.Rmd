@@ -1,0 +1,149 @@
+---
+title: "Genome Quality Checks"
+author: "Sneha Sundar"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+Script and statistics for Figure S2. 
+
+Analyses of genome quality metrics independently assessed using checkM2 (v.1.1.0) using default settings. 
+
+
+## Load packages
+```{r}
+
+library(tidyverse)
+library(here)
+
+
+plots_folder <- here("data/processed/manuscript_plots/001.sample_distribution")
+
+
+
+source(here("code/000.tools/helpers.R"))
+source(here("code/000.tools/plot.R"))
+```
+## Load genome summary results
+
+```{r}
+genome_summary_df <- read.table(here("data/processed/002.find_genes/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/genome_tra_count_summary.tsv"),header = T,sep = '\t', quote = "")
+```
+
+
+## Load checkm2 results
+
+
+```{r}
+quality_table_path <- here("data/processed/001.sample_distribution/quality_check/checkm2/quality_report.tsv")
+
+quality_table <- read.table(file = quality_table_path, header = T,sep = "\t")
+
+quality_table
+```
+Add quality metrics to genome summary table. 
+
+```{r}
+genome_summary_df <- right_join(genome_summary_df,quality_table,by=c("target_genome"="Name"))
+```
+
+## What is the range of E.coli genomes sizes we have (in bp) ? 
+
+```{r}
+
+range(genome_summary_df$Genome_Size)
+
+```
+
+## Figure S2A: genome completeness and contamination distributions 
+
+```{r}
+
+
+p <- genome_summary_df %>% ggplot() + 
+  geom_jitter(aes(x=Completeness,y=Contamination),alpha=0.5,width = 0.001,height=0.001) + 
+ # geom_hline(yintercept=5,linetype=2, linewidth=0.8) +
+  xlim(99.98,100.002) + ylim(-0.01,5) +
+  ylab("Genome contamination %") + 
+  xlab("Genome completeness %") +
+  theme_manuscript
+
+p
+
+ggsave(paste0(plots_folder,"/","genome_completeness_contamination.pdf"),p, units = "cm",height = 10, width = 12 , dpi = 600)
+  
+```
+
+
+99.5% of genomes have 100% completeness and all genomes have a completeness score >= 99.9%. 
+
+All genomes have less than 3% contamination. 
+
+```{r}
+sum(genome_summary_df$Completeness >= 100)
+
+sum(genome_summary_df$Contamination <= 3)
+```
+
+## Is genome quality associated with F-like transfer operon functional completness? 
+
+We find a significant difference in mean contamination score across the F-like transfer operon functional completeness categories. Genomes missing F-like transfer operons have statistically lower contamination scores. Note that contamination is in %. Overall, though, contamination scores for all three operon completeness strategies are very low. 
+
+
+```{r}
+kruskal.test(Contamination~functional_category, data=genome_summary_df)
+```
+
+
+```{r}
+genome_summary_df %>% group_by(functional_category) %>% summarise(mean(Contamination))
+```
+
+
+```{r}
+pairwise.wilcox.test(genome_summary_df$Contamination,genome_summary_df$functional_category,p.adjust.method = "bonferroni")
+```
+
+## Figure S2 B,C: genomes completeness and contamination across operon completeness categories
+
+```{r}
+p <- genome_summary_df %>%  ggplot(aes(x=functional_category,y=Contamination,color=functional_category)) + 
+  geom_violin(scale="count",show.legend=F) +
+  geom_jitter(alpha=0.3, width = 0.3) + 
+  xlab("F-like transfer operon\nfunctional completeness") + 
+  ylab("Genome Contamination (%)") + 
+  scale_fill_manual(values=functional_colours)+
+  scale_color_manual(values=functional_colours) +
+  guides(fill = "none",color="none") + 
+  theme_manuscript
+
+p
+ggsave(paste0(plots_folder,"/","functional_completness_vs_contamination.pdf"),p, units = "cm",height = 8, width = 8, dpi = 600)
+```
+
+
+```{r}
+p <- genome_summary_df %>%  ggplot(aes(x=functional_category,y=Completeness,color=functional_category)) + 
+  geom_violin(scale="count",show.legend=F) +
+  geom_jitter(alpha=0.3, width=0.3) + 
+  xlab("F-like transfer operon\nfunctional completeness") + 
+  ylab("Genome Completeness (%)") + 
+  scale_fill_manual(values=functional_colours)+
+  scale_color_manual(values=functional_colours) +
+  guides(fill = "none",color="none") + 
+  theme_manuscript
+p
+
+ggsave(paste0(plots_folder,"/","functional_completness_vs_genomecompleteness.pdf"),p, units = "cm",height = 8, width = 8, dpi = 600)
+```
+
+
+
+
+
+

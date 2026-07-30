@@ -1,9 +1,20 @@
 ---
-title: "Logistic regression analysis"
+title: "Sensitivity analyses using a reduced dataset"
 author: "Sneha Sundar"
 date: "`r Sys.Date()`"
 output: html_document
 ---
+
+Script and statistics for Fig S9 . 
+
+
+Highly similar genomes were removed and the entire logistic regression procedure was rerun. 
+
+Highly similar genomes were identified with two criteria (see code/ANI.Rmd)
+
+1. pairwise ANI $\in$ [99.99,100)
+2. Had the same plasmid clusters (identified using mob-recon). Note that only presence of plasmid clusters was assessed not whether they were also similar at the nucleotide level. 
+
 
 
 ```{r setup, include=FALSE, warning = FALSE}
@@ -11,7 +22,7 @@ knitr::opts_chunk$set(echo = TRUE)
 options(scipen = 1, digits = 3)
 ```
 
-Script and statistics for Figures 3B, S8 and Tables S3, S4, S5. 
+
 
 ## Libraries
 
@@ -29,7 +40,11 @@ source(here("code/000.tools/plot.R"))
 
 Input summary table for all genomes. 
 ```{r}
-genome_summary_df <- read.table(here("data/processed/002.find_genes/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/genome_tra_count_summary.tsv"),header = T,sep = '\t', quote = "")
+genome_summary_df <- read.table(here("data/processed/002.find_genes/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/genome_tra_count_summary.tsv"),header = T,sep = '\t', quote = "") 
+
+genomes_to_remove <- read_lines(here("data/processed/001.sample_distribution/similar_genomes_to_remove.txt"))
+
+genomes_to_remove
 
 ```
 
@@ -37,39 +52,13 @@ Plots folder
 ```{r}
 plots_folder <- here("data/processed/manuscript_plots/004.reg")
 
+plots_folder
 ```
-
-## Testing associations between variables
-
-
-Pearson's chi-squared test of independence 
 
 ```{r}
-associations_test <- function(var1, var2, df = genome_summary_df){
-  freq_table <- table(df[[var1]], df[[var2]])
-  print(freq_table)
-  
-  model.chi <- chisq.test(freq_table)
-  
-  effectsize.modelchi <- chisq_to_cramers_v(chisq = model.chi$statistic, n = length(df[[var1]]), nrow=nrow(model.chi$observed), ncol=ncol(model.chi$observed), adjust = T, alternative = "two.sided")
-  
- return(c(V1 = var1, V2 = var2,model.chi$statistic, model.chi$parameter, p.val = model.chi$p.value,effectsize.modelchi))
-}
+genome_summary_df
 ```
 
-
-```{r}
-variables <- c("Generic_Host","PhG", "Source_Niche", "Acq_Resist")
-
-variable_combinations <- combn(variables, 2) %>% t()
-
-associations_df  <- mapply(FUN = associations_test,variable_combinations[,1],variable_combinations[,2],SIMPLIFY = T,USE.NAMES = F)
-
-associations_df<- associations_df %>% t() 
-
-
-write.table(associations_df,file =  paste0(plots_folder,"/","variable_associations_n1200.tsv"),sep = "\t",row.names = F,quote = F)
-```
 
 
 
@@ -82,21 +71,20 @@ write.table(associations_df,file =  paste0(plots_folder,"/","variable_associatio
 ### Main effects
 
 ```{r}
-test_df <- test_df <- genome_summary_df %>% 
-            select(Generic_Host, PhG, Source_Niche, is.functional, Acq_Resist,Sampling_Year) %>% 
+test_df <- genome_summary_df %>% 
+  filter(!(target_genome %in% genomes_to_remove)) %>% 
+            select(Generic_Host, PhG, Source_Niche, is.functional, Acq_Resist) %>% 
             mutate(Generic_Host = factor(Generic_Host), 
                    is.functional = (is.functional*1), 
                    PhG = factor(PhG),                                     
                    Source_Niche = as.factor(Source_Niche),
-                   Acq_Resist = as.factor(Acq_Resist),
-           Sampling_Year = as.factor(Sampling_Year))
-
+                   Acq_Resist = as.factor(Acq_Resist))
 ```
 
 Main effect model with the lowest AIC. 
 
 ```{r}
-variables <- c("Generic_Host","PhG", "Source_Niche", "Acq_Resist","Sampling_Year")
+variables <- c("Generic_Host","PhG", "Source_Niche", "Acq_Resist")
 
 variable_combinations <- combn(variables, 2) %>% t()
 variable_combinations
@@ -128,10 +116,10 @@ model_selection_table <- model_selection_table %>% as.data.frame() %>% rownames_
 model_selection_table %>% arrange(AIC)
 ```
 
-## Table S4: Main effects model selection
+## Table: Main effects model selection
 
 ```{r}
-write.table(model_selection_table %>% arrange(AIC),paste0(plots_folder,"/","main_effects_model_selection_table.tsv"),sep = "\t",quote = F,row.names = F)
+write.table(model_selection_table,paste0(plots_folder,"/","main_effects_model_selection_table_sensitive.tsv"),sep = "\t",quote = F,row.names = F)
 ```
 
 
@@ -199,12 +187,14 @@ interaction_results <- do.call(
 row.names(interaction_results) <- NULL
 
 
+interaction_results
+
 
 ```
 ## Table: selecting interaction terms. 
 
 ```{r}
-write.table(interaction_results, paste0(plots_folder,"/","interaction_effects_model_selection_table.tsv"),sep = "\t",quote = F,row.names = F)
+write.table(interaction_results, paste0(plots_folder,"/","interaction_effects_model_selection_table_sensitive.tsv"),sep = "\t",quote = F,row.names = F)
 ```
 
 
@@ -432,7 +422,7 @@ design <- "AB
 p_contrasts_split <- p_host + p_phg+ p_source + p_resist +  plot_layout( design = design,axes = "collect",ncol = 4) 
 
 
-ggsave(paste0(plots_folder,"/","contrasts_main_pval_all.pdf"),p_contrasts_split, units = "cm",height = 14, width = 20, dpi = 600)
+ggsave(paste0(plots_folder,"/","contrasts_main_pval_all_sensitive.pdf"),p_contrasts_split, units = "cm",height = 14, width = 20, dpi = 600)
 ```
 
 ## Interaction contrasts (all)
@@ -527,10 +517,8 @@ design <- "AABBCC
 
 p_contrasts_split <- p3+p4+p1+p2  + plot_layout(design = design, axes = "collect_x") 
 
-ggsave(paste0(plots_folder,"/","contrasts_interactions_all.pdf"),p_contrasts_split, units = "cm",height = 14, width = 20, dpi = 600)
+ggsave(paste0(plots_folder,"/","contrasts_interactions_all_sensitive.pdf"),p_contrasts_split, units = "cm",height = 14, width = 20, dpi = 600)
 
 ```
-
-
 
 

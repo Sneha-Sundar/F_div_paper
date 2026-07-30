@@ -7,4 +7,7 @@ This repository contains code and data to reproduce the results in "[Transfer po
 - data:  
   contains data files used to reproduce figures and tables
 - find-genes-workflow:  
-  Snakemake pipeline to reproduce bioinformatic analyses. Large files (such as genomes and annotation files) are not included in this repository. Accession numbers for the genomes used have been listed. 
+  Snakemake pipeline to reproduce bioinformatic analyses.
+  
+
+ Large files (such as genomes and intermediated bioinformatic files) are not included in this repository. Accession numbers for the genomes used in this paper have been listed at `find-genes-workflow/config/BioSample_ecoli.txt`. 

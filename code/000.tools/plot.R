@@ -8,7 +8,6 @@
 ##
 ## Author: Sneha Sundar
 ##
-## Date Modified: 2023-08-08
 ##
 ## ---------------------------
 ##
@@ -26,8 +25,6 @@
 
 library(RColorBrewer)
 library(viridis)
-library(ComplexHeatmap)
-library(circlize)
 library(paletteer)
 library(svglite)
 library(patchwork)
@@ -35,20 +32,20 @@ library("ggridges")
 library(tidytext)
 library(UpSetR)
 library(ggalluvial)
-library(ggparallel)
+#library(ggparallel)
 
 ## Label_info
 
-TRA_GENES_GROUP <- read.table(here("data/processed/002.find_genes/reference_tra_genes/TRA_GENES_LABELS.tsv"),header = T, quote = "", sep = '\t')
+TRA_GENES_GROUP <- read.table(here("data/processed/002.find_genes/reference_tra_genes/tra_ref_genes_metadata_summary_35_genes.tsv"),header = T, quote = "", sep = '\t')
 ESS_TRA <- TRA_GENES_GROUP %>% filter(Function != "nonessential", Function != "self-transfer prevention", TRA_GENES != "fino" ) %>% pull(TRA_GENES)
 
 #write.table(TRA_GENES_GROUP, file = here("data/processed/002.find_genes/reference_tra_genes/TRA_GENES_LABELS.tsv"),quote = F,sep = "\t",col.names = T)
-## THEME
+
+## THEMES
 ###############################
 
-#theme_font_axes <- theme(axis.text=element_text(size=24), 
-                    #axis.title=element_text(size=22)) 
 
+## Big fonts: suitable for poster and presentation
 
 theme_font_axes <- theme(axis.text=element_text(size=26), 
                          axis.title=element_text(size=24)) 
@@ -91,7 +88,7 @@ themeBW <- theme_bw()  +
   theme_font_facet + 
   theme_legend 
   
-#Manuscrupt themes
+#Manuscript themes
 
 theme_legend_inside_right_bottom_manuscript <- theme(legend.title = element_text(size = 11), # Change title font
                                           legend.text = element_text(size = 10),
@@ -149,6 +146,20 @@ theme_manuscript <- themeBW_manuscript  +
     strip.background = element_rect(fill = "white")
   )
 
+theme_inset <- theme_manuscript + 
+  theme(
+    plot.title      = element_text(size = 8, hjust = 0.5),
+    axis.title      = element_text(size = 6),
+    axis.text       = element_text(size = 5),
+    legend.title    = element_text(size = 5,face="plain"),
+    legend.text     = element_text(size = 4),
+    strip.text      = element_text(size = 6,color = "black", face = "bold"),
+    plot.caption    = element_text(size = 3, hjust = 0),
+    plot.subtitle   = element_text(size = 8, hjust = 0.5),
+    legend.box.background = element_rect(),
+    strip.background = element_rect(fill = "white")
+  )
+
 themenull <- theme(axis.line = element_blank(),
                    axis.title = element_blank(),
                    axis.text = element_blank(),
@@ -181,8 +192,12 @@ CB15 <- c(
 
 ## BINARY
 
-binary_colours <- c("#F7FBFF", '#034e7b')
+binary_colours <- c("grey", '#034e7b')
 binary_colours2 <- c("FALSE" = "grey","TRUE" = "black")
+
+## Ternary
+
+ternary_colours <- c('#034e7b', "#6BAED6","lightgrey")
 
 ## Sequential
 #-----------------------

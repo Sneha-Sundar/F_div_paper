@@ -4,13 +4,13 @@
 samples: config/BioSample_ecoli.txt 
 
 #folder where the genomes are stored
-genomes_folder: /cluster/scratch/ssundar/genomes/pires_1200/Ecoli
+genomes_folder: genomes/pires_1200/Ecoli
 
 #folder where the results will be stored
-out_folder: /cluster/scratch/ssundar/genomes/pires_1200
+out_folder: genomes/pires_1200
 
 #where conda environments are stored
-conda_env: /cluster/home/ssundar/miniconda3/envs  
+conda_env: miniconda3/envs  
 
 #where conda environment yaml files are stored
 conda_yaml: ../code/000.tools/envs
@@ -36,7 +36,7 @@ filter_seq:
   score_threshold: 0.7
 
 mob_recon:
-  chromosome_db: /cluster/scratch/ssundar/databases/mob_suite/Enterobacteriacea_DB/2019-11-NCBI-Enterobacteriacea-Chromosomes.fasta
+  chromosome_db: ../databases/mob_suite/Enterobacteriacea_DB/2019-11-NCBI-Enterobacteriacea-Chromosomes.fasta
 
 
   

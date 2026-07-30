@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-Script and statistics for Figure 5, S5, S6, S7. 
+Script and statistics for Figure 5, S11,S12,S13
 
 ## Libraries
 

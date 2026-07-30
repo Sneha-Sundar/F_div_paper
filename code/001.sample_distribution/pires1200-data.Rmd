@@ -5,6 +5,11 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
+Figs 3A, S1 
+
+Plots/statistics related to sample distributions across phylogroup, samples source (Food vs. Livestock) and antimicrobial gene presence (yes vs. no)
+
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 options(digits = 3)
@@ -24,7 +29,7 @@ source(here("code/000.tools/plot.R"))
 Input data
 
 ```{r}
-genome_summary_df <- read.table(here("data/processed/003.genomic_context/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/genome_tra_count_summary.tsv"),header = T,sep = '\t', quote = "")
+genome_summary_df <- read.table(here("data/processed/002.find_genes/pires1200_onlyblastcontigs_rmnonF-like_trantotraf/genome_tra_count_summary.tsv"),header = T,sep = '\t', quote = "")
 
 ```
 
@@ -92,7 +97,7 @@ p2 <- genome_summary_df %>% ggplot()+ geom_bar(aes(x=Generic_Host,fill=PhG))  + 
     shape  = guide_legend(nrow = 2),
     linetype = guide_legend(nrow = 2)
   )
-
+p2
 
 ```
 
@@ -147,7 +152,7 @@ ggsave(paste0(plots_folder,"/","sample_distributions_by_animal_host.pdf"),patch1
 ```
 
 
-Add sampling year to this
+## Sample distribution across sampling year
 
 
 ```{r}

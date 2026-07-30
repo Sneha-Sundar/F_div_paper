@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Script and statistics for Figure 4, S4. 
+Script and statistics for Figure 4, S10. 
 
 ## Libraries
 
@@ -25,6 +25,8 @@ plot_folder <- here("data/processed/manuscript_plots/005.gene_prev")
 
 
 ESS_TRA <- TRA_GENES_GROUP %>% filter(Function != "nonessential", Function != "self-transfer prevention", TRA_GENES != "fino" ) %>% pull(TRA_GENES)
+
+ESS_TRA
 ```
 
 
@@ -52,9 +54,10 @@ genome_summary_df <- read.table(here("data/processed/002.find_genes/pires1200_on
 
 mat_count_genome.bakta <- t(sapply(genome_summary_df$target_genome,count_tra_genes_in_genome_bakta, pires1200_bakta,TRA_GENES_GROUP$TRA_GENES,simplify = T))
 
-
 mat_PreAbs_genome.bakta <- (mat_count_genome.bakta > 0)*1
 
+
+mat_count_genome.bakta
 ```
 
 
@@ -111,6 +114,8 @@ prev_result <- create_prev_table(hit_type = "all", min.hit = 1, max.hit = 200, g
 
 labels <- setNames(paste0(names(prev_result$sample_size), " (n = ", prev_result$sample_size, ")"), names(prev_result$sample_size))
 
+prev_result
+
 animal.host.prev.df <- prev_result$df %>% as.data.frame() 
 
 animal.host.prev.df <- animal.host.prev.df[rownames(animal.host.prev.df) != "trbh",]
@@ -118,15 +123,18 @@ animal.host.prev.df <- animal.host.prev.df[rownames(animal.host.prev.df) != "trb
 ```
 
 
+```{r}
+
+```
 
 ## Prevalence with confidence intervals
 
 ```{r}
-poultry_prev <- binom.approx(animal.host.prev.df$Poultry * 350,350) %>% mutate(tra_gene = rownames(animal.host.prev.df),Animal_Source = "Poultry")
+poultry_prev <- binom.approx(animal.host.prev.df$Poultry * prev_result$sample_size[["Poultry"]],prev_result$sample_size[["Poultry"]]) %>% mutate(tra_gene = rownames(animal.host.prev.df),Animal_Source = "Poultry")
 
-swine_prev <- binom.approx(animal.host.prev.df$Swine * 273,273) %>% mutate(tra_gene = rownames(animal.host.prev.df),Animal_Source = "Swine")
+swine_prev <- binom.approx(animal.host.prev.df$Swine * prev_result$sample_size[["Swine"]],prev_result$sample_size[["Swine"]]) %>% mutate(tra_gene = rownames(animal.host.prev.df),Animal_Source = "Swine")
 
-Bovine_prev <- binom.approx(animal.host.prev.df$Bovine * 249,249) %>% mutate(tra_gene = rownames(animal.host.prev.df),Animal_Source = "Bovine")
+Bovine_prev <- binom.approx(animal.host.prev.df$Bovine * prev_result$sample_size[["Bovine"]],prev_result$sample_size[["Bovine"]]) %>% mutate(tra_gene = rownames(animal.host.prev.df),Animal_Source = "Bovine")
 
 
 animal_prev_wconf <- rbind(Bovine_prev, poultry_prev, swine_prev)
@@ -164,9 +172,9 @@ p <- animal_prev_wconf %>% group_by(Animal_Source) %>%
   ggplot(aes(y = tra_gene, x = proportion,group = Animal_Source, color = Animal_Source)) + 
   geom_errorbar(aes(y = tra_gene, xmin = lower, xmax = upper, color = Animal_Source, group = Animal_Source),position = pd,width = 1) + 
   geom_point(position = pd, size = 2) +  theme_manuscript + theme_legend_inside_right_bottom_manuscript +  scale_x_continuous(limits= c(0,1), breaks = seq(0,1,0.1))  + scale_color_manual(values = animal_colours) +  #geom_vline(xintercept = c(0.7987385), linetype = "dashed", linewidth = 1) +
-geom_vline(xintercept = median(animal.host.prev.df$Poultry), linetype = "dashed", linewidth = 1, color = animal_colours["Poultry"]) + 
-geom_vline(xintercept = median(animal.host.prev.df$Bovine), linetype = "dashed", linewidth = 1, color = animal_colours["Bovine"]) + 
-geom_vline(xintercept = median(animal.host.prev.df$Swine), linetype = "dashed", linewidth = 1, color = animal_colours["Swine"]) + 
+geom_vline(xintercept = median(animal.host.prev.df$Poultry), linetype = "dashed", linewidth = 0.5, color = animal_colours["Poultry"]) + 
+geom_vline(xintercept = median(animal.host.prev.df$Bovine), linetype = "dashed", linewidth = 0.5, color = animal_colours["Bovine"]) + 
+geom_vline(xintercept = median(animal.host.prev.df$Swine), linetype = "dashed", linewidth = 0.5, color = animal_colours["Swine"]) + 
   xlab("Gene Frequency") + ylab("F-like transfer gene") + coord_flip() + theme(axis.text.x = element_blank()) + labs(color = "Animal Environment")
 
 p_collect <- p/gene_tiles + plot_layout(axes = "collect", heights = c(10,1)) 

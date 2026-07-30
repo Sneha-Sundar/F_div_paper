@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 options(scipen = 1, digits = 3)
 ```
 
-Script and statistics for Figure 2, S2 and Table S2. 
+Script and statistics for Figure 2, S5 and Table S2. 
 
 ## Libraries
 
@@ -192,8 +192,6 @@ overall.prev
 
 ```
 
-
-
 ## Figure: Replicon vs. transfer gene based prevalences overall and in each livestock environment. 
 
 ```{r}
@@ -216,6 +214,52 @@ print(p)
 
 ggsave(paste0(plots_folder,"/","transfervsreplicon_prev.svg"),p, units = "cm",height = 8, width = 8, dpi = 600)
 ```
+
+
+## Within each animal niche and sample source:
+
+```{r}
+thres = 5
+
+animal_niche_source.prev <-
+   genome_summary_df %>% group_by(Generic_Host,Source_Niche) %>% summarise(n_Fplasmid.transfer_gene = sum(bakta.n_distinct_hits>=thres), n = n()) %>% 
+  mutate(prev.transfer_gene = n_Fplasmid.transfer_gene/n) %>% left_join(genome_summary_df %>% group_by(Generic_Host,Source_Niche) %>% summarise(n_Fplasmid.replicon = sum(has.incF_replicon), n = n()) %>% mutate(prev.replicon = n_Fplasmid.replicon/n)
+)
+
+animal_niche_source.prev <- animal_niche_source.prev %>% pivot_longer(cols = !Generic_Host & !Source_Niche & !n, names_to = c(".value","marker"),names_sep = "\\." )
+
+animal_niche_source.prev $marker = factor(animal_niche_source.prev $marker,levels = c("transfer_gene","replicon"),labels = c("transfer gene", "replicon"))
+
+#we are using normal approximation to the binomial to calculated the confidence intervals
+animal_niche_source.prev  <- animal_niche_source.prev  %>% mutate(lower.95CI =  binom.approx(n_Fplasmid,n) %>% pull(lower),
+                             upper.95CI = binom.approx(n_Fplasmid,n) %>% pull(upper) )
+
+animal_niche_source.prev 
+```
+```{r}
+pd <- position_dodge(0.4)
+
+p <- animal_niche_source.prev %>% mutate(Generic_Host = factor(Generic_Host,levels = c("Bovine","Swine", "Poultry"))) %>% group_by(Generic_Host,Source_Niche) %>% 
+  ggplot(aes(x= Generic_Host, y = prev, group = marker, color = marker)) +
+  geom_errorbar(aes(x = Generic_Host, ymin = lower.95CI, ymax = upper.95CI, color = marker, group = marker),position = pd,width = 0.2) + 
+  geom_point(position = pd, size = 3) + 
+  facet_wrap(vars(Source_Niche)) +
+  ylim(c(0,1)) + 
+  ylab("Prevalence") +
+  xlab("Animal Host") +
+  scale_color_manual(values = replicon_transfer_gene_colors,name = "marker") +
+
+  theme_manuscript +
+  theme_legend_inside_right_bottom_manuscript
+
+print(p)
+
+
+ggsave(paste0(plots_folder,"/","transfervsreplicon_prev_by_sample_source.pdf"),p, units = "cm",height = 8, width = 12, dpi = 600)
+```
+
+
+
 
 
 ## Figure: What is the fraction of genomes with an IncF replicon that also has the transfer operon? 
@@ -351,6 +395,8 @@ ggsave(paste0(plots_folder,"/","barchart_functional_completeness_fill_function.s
 p1
 ```
 
+
+
 ## Figure: Histogram of number of transfer gene hits per animal host. 
 
 
@@ -365,11 +411,103 @@ p2 <- genome_summary_df %>% ggplot(aes(x = bakta.n_hits_genome)) +
   scale_fill_manual(
     values = functional_colours, name = "Functional completeness")  + theme_manuscript + guides(fill = "none") 
 
-
+p2
 
 ggsave(paste0(plots_folder,"/","bakta_n_hits_by_generic_host.svg"),p2, units = "cm",height = 10, width = 14, dpi = 600)
 p2
 ```
+
+```{r}
+binwid = 1
+animal = "Bovine"
+
+p_main <- genome_summary_df %>% filter(Generic_Host == animal) %>%  
+  ggplot(aes(x = bakta.n_hits_genome)) + 
+  geom_histogram(aes(fill = functional_category), binwidth = binwid) +
+  facet_wrap(~Generic_Host, nrow = 3,strip.position = "right") + 
+ scale_x_continuous(name = NULL,limits = c(0,90),breaks = seq(0,80,20)) +
+  scale_y_continuous(name = NULL,limits = c(0,160)) +
+  scale_fill_manual(
+    values = functional_colours, name = "Functional completeness")  + 
+  theme_manuscript + guides(fill = "none") 
+  
+
+p_inset <- genome_summary_df %>% 
+  filter(Generic_Host == animal,bakta.n_hits_genome %in% seq(20,50)) %>%  
+  ggplot(aes(x = bakta.n_hits_genome)) + 
+  geom_histogram(aes(fill = functional_category), binwidth = binwid) +
+  scale_x_continuous(name = NULL,n.breaks = 4,breaks = c(20,30,40,50)) +
+  scale_y_continuous(name = NULL) +
+  scale_fill_manual(
+    values = functional_colours, name = "Functional completeness")  + 
+  theme_inset + 
+  guides(fill = "none") 
+
+hist1 <- p_main + inset_element(p_inset,0.6, 0.2, 0.99, 0.99)
+
+ggsave(paste0(plots_folder,"/","bakta_n_hits_by_generic_host",animal,".pdf"),hist1, units = "cm",height = 3.5, width = 10, dpi = 600)
+```
+
+
+```{r}
+binwid = 1
+animal = "Swine"
+
+p_main <- genome_summary_df %>% filter(Generic_Host == animal) %>%  ggplot(aes(x = bakta.n_hits_genome)) + 
+  geom_histogram(aes(fill = functional_category), binwidth = binwid) +
+  facet_wrap(~Generic_Host, nrow = 3,strip.position = "right") + 
+  scale_x_continuous(name =NULL,limits = c(0,90),breaks = seq(0,80,20)) +
+  scale_y_continuous(name = NULL,limits = c(0,160)) +
+  scale_fill_manual(
+    values = functional_colours, name = "Functional completeness")  + theme_manuscript + guides(fill = "none") 
+
+p_inset <- genome_summary_df %>% filter(Generic_Host == animal,bakta.n_hits_genome %in% seq(20,50)) %>%  ggplot(aes(x = bakta.n_hits_genome)) + 
+  geom_histogram(aes(fill = functional_category), binwidth = binwid) +
+  scale_x_continuous(name = NULL,n.breaks = 4,breaks = c(20,30,40,50)) +
+  scale_y_continuous(name = NULL) +
+  scale_fill_manual(
+    values = functional_colours, name = "Functional completeness")  + 
+  theme_inset + 
+  guides(fill = "none") 
+
+hist1 <- p_main + inset_element(p_inset,0.6, 0.2, 0.99, 0.99)
+
+ggsave(paste0(plots_folder,"/","bakta_n_hits_by_generic_host",animal,".pdf"),hist1, units = "cm",height = 3.5, width = 10, dpi = 600)
+```
+
+```{r}
+binwid = 1
+animal = "Poultry"
+
+p_main <- genome_summary_df %>% filter(Generic_Host == animal) %>%  ggplot(aes(x = bakta.n_hits_genome)) + 
+  geom_histogram(aes(fill = functional_category), binwidth = binwid) +
+  facet_wrap(~Generic_Host, nrow = 3,strip.position = "right") + 
+   scale_x_continuous(name = NULL,limits = c(0,90),breaks = seq(0,80,20)) +
+  scale_y_continuous(name = NULL,limits = c(0,160)) +
+  scale_fill_manual(
+    values = functional_colours, name = "Functional completeness")  + theme_manuscript + guides(fill = "none") 
+
+p_inset <- genome_summary_df %>% filter(Generic_Host == animal,bakta.n_hits_genome %in% seq(20,50)) %>%  ggplot(aes(x = bakta.n_hits_genome)) + 
+  geom_histogram(aes(fill = functional_category), binwidth = binwid) +
+  scale_x_continuous(name = NULL,n.breaks = 4,breaks = c(20,30,40,50)) +
+  scale_y_continuous(name = NULL) +
+  scale_fill_manual(
+    values = functional_colours, name = "Functional completeness")  + 
+  theme_inset+
+  
+  guides(fill = "none") 
+
+
+hist1 <- p_main + inset_element(p_inset,0.6, 0.2, 0.99, 0.99)
+
+ggsave(paste0(plots_folder,"/","bakta_n_hits_by_generic_host",animal,".pdf"),hist1, units = "cm",height = 3.5, width = 10, dpi = 600)
+```
+
+```{r}
+hist1/hist2/hist3 
+```
+
+
 
 
 

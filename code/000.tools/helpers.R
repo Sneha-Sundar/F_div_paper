@@ -552,7 +552,7 @@ count_tra_genes_in_genome <-
     
   
     
-    bin <- rep(0,36)
+    bin <- rep(0,length(gene_list))
     names(bin) <- gene_list
     bin[names(hits_in_genome)] <- hits_in_genome
     
@@ -568,7 +568,7 @@ count_tra_genes_in_genome_bakta <-
     
     hits_in_genome <-table(hits_in_genome[hits_in_genome %in% gene_list])
     
-    bin <- rep(0,36)
+    bin <- rep(0,length(gene_list))
     names(bin) <- gene_list
     bin[names(hits_in_genome)] <- hits_in_genome
     
@@ -585,7 +585,7 @@ count_tra_genes_in_contig_bakta <-
     
     hits_in_genome_contig <-table(hits_in_genome_contig[hits_in_genome_contig %in% gene_list])
     
-    bin <- rep(0,36)
+    bin <- rep(0,length(gene_list))
     names(bin) <- gene_list
     bin[names(hits_in_genome_contig)] <- hits_in_genome_contig
     
@@ -952,4 +952,97 @@ associations_test <- function(var1, var2, df = genome_summary_df){
   return(c(V1 = var1, V2 = var2,model.chi$statistic, model.chi$parameter, p.val = model.chi$p.value,effectsize.modelchi))
 }
 
+
+
+## -------------------
+
+## Gene order
+## -------------------
+
+
+extract_tra_gene_order <- function(contig_id,bakta_res){
+  
+  #extract genes in the order in which they are found. Genes on the negative strand will be in reverse order.
+  
+  genes <- bakta_res %>% filter(genome_contig == contig_id) %>% arrange(start) %>% pull(gene)
+  
+  return(genes)
+}
+
+
+get_positional_order <- function(gene_order, ref_order = TRA_GENES_GROUP$TRA_GENES){
+  
+  #extract genes in the order in which they are found. Genes on the negative strand will have descending numbers. 
+  
+  
+  return(match(gene_order,ref_order))
+}
+
+
+
+
+check_if_F_order <- function(genome_contig, bakta_res, order = TRA_GENES_GROUP$TRA_GENES ){
+  
+  # Get the positions of the subset elements in the superset
+  positions <- match(extract_tra_gene_order(genome_contig,bakta_res),order)
+  
+  if(length(positions) == 1){
+    return(NA)
+  }
+  
+  # Check if positions are in increasing order
+  return(all(diff(positions) >= 0) | all(diff(positions) <= 0))
+  
+  
+}
+
+
+
+## -------------------
+
+## Presence/absence of plasmid clusters in genome
+## -------------------
+
+create_plasmid_cluster_presence_absence_matrix <- function(mob_typer_df){
+  
+  plasmid_clusters <- unique(mob_typer_df$primary_cluster_id)
+  
+  genomes <- unique(mob_typer_df$genome)
+  
+  pres.abs.matrix <- matrix(data = 0, nrow = length(genomes), ncol = length(plasmid_clusters),dimnames = list(genomes,plasmid_clusters))
+  
+  
+  
+  for(sample_id in genomes){
+    plasmid_clusters_present <- mob_typer_df[mob_typer_df$genome == sample_id,] %>%  pull(primary_cluster_id) %>% unique()
+    
+    
+    pres.abs.matrix[sample_id,plasmid_clusters_present] = 1
+    
+  }
+  
+  return(pres.abs.matrix)
+  
+}
+
+
+compute_jaccard_similarity <- function(genome1, genome2, mat = pa.mat.nonnovel){
+  
+  tryCatch(
+    expr = {
+      a_vec = mat[genome1,]
+      b_vec = mat[genome2,]
+      
+      colsums_vec <- colSums(rbind(a_vec,b_vec))
+      
+      j_index <- sum(colsums_vec==2)/(sum(colsums_vec!=0)) #intersection/union
+      
+      return(j_index)
+    },
+    error = function(e) {
+      return(NA_real_)
+    }
+  )
+  
+}
 

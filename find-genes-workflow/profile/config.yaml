@@ -1,11 +1,11 @@
 #note: this is a sample profile file. You will need to change the paths to match your system.
-latency-wait: 300 
-max-jobs-per-second: 10
-show-failed-logs: True
-jobs: 50 
-use-conda: True
-use-envmodules: True 
-conda-cleanup-pkgs: cache 
+latency-wait: 300  #how long to wait for files to appear after job completion, in seconds
+max-jobs-per-second: 10 #how many jobs to submit per second. This is to avoid overloading the scheduler.
+show-failed-logs: True 
+jobs: 50 #number of jobs to run in parallel
+use-conda: True #use conda environments for each rule
+use-envmodules: True #use environment modules for each rule
+conda-cleanup-pkgs: cache #clean up conda packages after each rule. This is useful if you have limited disk space. If you have enough disk space, set this to False to avoid re-downloading packages for each rule.
 keep-going: True
 printshellcmds: True
 max-status-checks-per-second: 10
@@ -15,7 +15,7 @@ default-resources:
   mem_mb_per_cpu: 2000
   mem_mb: None
   disk_mb: None
-  slurm_account: es_bonho #your slurm account here
+  slurm_account: #your slurm account here
 set-resources:
   decompress_genome:
     runtime: 5

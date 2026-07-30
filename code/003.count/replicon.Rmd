@@ -5,14 +5,14 @@ date: "`r Sys.Date()`"
 output: html_document
 ---
 
-Note: This file will not run since it requires a large file. 
+Note: Input required for this file is too large for github so this file will not run. 
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Replicons in each genome were found using the tool plasmidfinder. Plasmidfinder detects plasmids using a pre-defined database of replicon sequences as queries in a BLAST search. 
-
+Replicon sequences in each genome were detected using the tool PlasmidFinder (v. 2.1.6) with default parameters (minimum identity 95\% and minimum coverage 60\%). PlasmidFinder detects plasmids in genomes using a pre-defined database of replicon sequences as queries in a BLAST search. The genome was said to contain an F-like replicon if one or more replicons of type IncFIA, IncFIB, IncFIC or IncFII were detected.
+Prevalence of F-like replicons was defined as the number of genomes containing an F-like replicon divided by the total number of genomes assessed. 
 
 ```{r}
 library(tidyverse)

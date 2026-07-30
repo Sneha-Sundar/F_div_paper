@@ -16,3 +16,15 @@ onsuccess:
 rule all:
     input:
         get_mobrecon_output()
+        
+        
+        # other options for output files to be generated can be added here (separated by commas), for example:
+        # get_tblastn_output()
+        # get_bakta_output()
+        # get_genomad_output()
+        # get_contiglens_output()
+        # get_plasmidfinder_output()
+        # ani_output()
+        # filter_seq_output()
+    
+

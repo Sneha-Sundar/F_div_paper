@@ -1,0 +1,26 @@
+name: mob_suite
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+  - nodefaults
+dependencies:
+  - biopython[version='>=1.8,<2']
+  - blast[version='>=2.9.0,<2.16.0']
+  - ete3[version='>=3.1.3']
+  - libsqlite[version='<3.49']
+  - mash[version='>=2.0']
+  - numpy[version='>=1.11.1,<1.23.5']
+  - pandas[version='>=0.22,<=1.5.3']
+  - pip
+  - pycurl[version='>=7.43.0']
+  - pytables
+  - pytest
+  - pytest-runner
+  - python[version='>=3.7']
+  - scipy[version='>=1.1.0']
+  - six
+  - mob_suite
+  - ca-certificates
+  - openssl
+prefix: miniconda3/envs/mob_suite
